@@ -1,0 +1,76 @@
+# RTX Training Plan — train_act + eval_act only
+# Data is pre-collected at /tmp/so101_push_sim_lerobot
+# Usage: python -m orchestrator_arm101.arm101_orchestrator --plan training_plans/rtx_train_plan.yaml --start-from train_act --device cuda:6 --fresh
+
+plan_name: so101_push_rtx
+device: cuda:6
+
+defaults:
+  dataset:
+    repo_id: PhangHongHao/so101_push_sim
+    root: /tmp/so101_push_sim_lerobot
+    video_backend: pyav
+    fps: 30
+    image_height: 480
+    image_width: 640
+
+  training:
+    batch_size: 128
+    lr: 1e-4
+    weight_decay: 1e-4
+    save_every: 5000
+    eval_every: 5000
+
+  monitor:
+    poll_interval: 60
+    plateau_window: 10
+    plateau_threshold: 0.01
+    loss_increase_threshold: 0.20
+    min_steps: 1000
+
+phases:
+  - id: train_act
+    name: "Train ACT Policy (RTX cuda:6)"
+    type: training
+    enabled: true
+    policy:
+      type: act
+      chunk_size: 100
+      n_obs_steps: 1
+      dim_model: 512
+      n_heads: 8
+      n_encoder_layers: 4
+      n_decoder_layers: 7
+      dropout: 0.1
+      kl_weight: 10
+      use_vae: true
+    training:
+      batch_size: 128
+      lr: 1e-4
+      weight_decay: 1e-4
+      max_steps: 50000
+      save_every: 5000
+      warmup_steps: 500
+      lr_scheduler: cosine
+    dataset:
+      root: /tmp/so101_push_sim_lerobot
+    monitor:
+      plateau_window: 15
+      loss_increase_threshold: 0.15
+
+  - id: eval_act
+    name: "Evaluate ACT Checkpoints"
+    type: evaluation
+    depends_on: [train_act]
+    enabled: true
+    collection:
+      scene_xml: ~/SO-ARM101-LeRobot/Simulation/SO101/scene.xml
+    eval:
+      n_episodes: 20
+      max_steps: 300
+      select_best_by: success_rate
+      success_threshold: 0.05
+      save_video: true
+      video_dir: /tmp/arm101_eval_videos
+      image_height: 480
+      image_width: 640

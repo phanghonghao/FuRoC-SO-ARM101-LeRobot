@@ -1,0 +1,115 @@
+# SO-101 Push Task Pipeline — Imitation Learning Orchestrator Plan
+# Usage: python -m orchestrator_arm101.arm101_orchestrator --plan training_plans/so101_push_plan.yaml
+
+plan_name: so101_push_pipeline
+device: cuda:7                   # Default GPU on RTX6000
+
+# ── Default config (shared across phases) ────────────────────── #
+defaults:
+  dataset:
+    repo_id: PhangHongHao/so101_sim
+    fps: 30
+    image_height: 480
+    image_width: 640
+    video_backend: pyav           # torchcodec missing libavutil on RTX
+
+  training:
+    batch_size: 128
+    lr: 1e-4
+    weight_decay: 1e-4
+    max_steps: 50000
+    save_every: 5000
+    eval_every: 5000
+
+  monitor:
+    poll_interval: 60             # seconds between log polls
+    plateau_window: 10            # polls for plateau detection
+    plateau_threshold: 0.01       # <1% loss change = plateau
+    loss_increase_threshold: 0.20 # >20% increase from best = overfitting
+
+# ── Phase 1: Data Collection ─────────────────────────────────── #
+phases:
+  - id: collect
+    name: "Collect Push Demos"
+    type: collection
+    enabled: true
+    collection:
+      trajectory_type: ik_push   # ik_reach / ik_push / scripted_pick
+      n_episodes: 300
+      n_steps: 100
+      n_waypoints: 3
+      scene_xml: Simulation/SO101/scene.xml
+      randomize: true
+      randomization:
+        joint_noise_std: 0.05
+        target_range_scale: 0.8
+      push_to_hub: true
+      hub_repo_id: PhangHongHao/so101_push_sim
+
+  # ── Phase 2: ACT Training ────────────────────────────────── #
+  - id: train_act
+    name: "Train ACT Policy"
+    type: training
+    depends_on: [collect]
+    enabled: true
+    policy:
+      type: act
+      chunk_size: 100
+      n_obs_steps: 1
+      dim_model: 512
+      n_heads: 8
+      n_encoder_layers: 4
+      n_decoder_layers: 7
+      dropout: 0.1
+      kl_weight: 10
+      use_vae: true
+    training:
+      batch_size: 128
+      lr: 1e-4
+      weight_decay: 1e-4
+      max_steps: 50000           # coarse 30K + fine 20K
+      save_every: 5000
+      warmup_steps: 500
+      lr_scheduler: cosine
+    dataset:
+      root: outputs/so101_push_sim_lerobot
+    monitor:
+      plateau_window: 15
+      loss_increase_threshold: 0.15
+
+  # ── Phase 3: Evaluate ACT ────────────────────────────────── #
+  - id: eval_act
+    name: "Evaluate ACT Checkpoints"
+    type: evaluation
+    depends_on: [train_act]
+    enabled: true
+    eval:
+      n_episodes: 20
+      max_steps: 300
+      select_best_by: success_rate   # success_rate / avg_distance
+      success_threshold: 0.05        # distance threshold for "success"
+      save_video: true
+      video_dir: outputs/eval_videos/act
+
+  # ── Phase 4: Diffusion Policy (optional comparison) ──────── #
+  - id: train_diffusion
+    name: "Train Diffusion Policy (Comparison)"
+    type: comparison
+    depends_on: [eval_act]
+    enabled: false               # disabled by default
+    policy:
+      type: diffusion
+      n_obs_steps: 2
+      horizon: 16
+      n_action_steps: 8
+      num_inference_steps: 100
+      down_dims: [256, 512, 1024]
+      noise_scheduler_type: DDPM
+    training:
+      batch_size: 256
+      lr: 1e-4
+      max_steps: 100000
+      save_every: 10000
+      ema_power: 0.75
+    dataset:
+      root: outputs/so101_push_sim_lerobot
