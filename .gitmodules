@@ -1,0 +1,3 @@
+[submodule "SO-ARM101-LeRobot"]
+	path = SO-ARM101-LeRobot
+	url = https://github.com/horndeer/SO-ARM101-LeRobot.git

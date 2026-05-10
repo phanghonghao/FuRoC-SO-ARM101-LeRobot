@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SO-ARM101 项目架构总览</title>
+<style>
+  :root {
+    --bg: #0d1117; --card: #161b22; --border: #30363d;
+    --text: #e6edf3; --text2: #8b949e; --accent: #58a6ff;
+    --green: #3fb950; --yellow: #d29922; --red: #f85149;
+    --purple: #bc8cff; --orange: #f0883e; --cyan: #39d353;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; padding: 2rem; max-width: 1100px; margin: 0 auto; }
+  h1 { font-size: 1.8rem; margin-bottom: 0.3rem; }
+  h1 span { color: var(--accent); }
+  .subtitle { color: var(--text2); margin-bottom: 2rem; font-size: 0.95rem; }
+  h2 { font-size: 1.3rem; margin: 2.5rem 0 1rem; padding-bottom: 0.4rem; border-bottom: 1px solid var(--border); color: var(--accent); }
+  h3 { font-size: 1.05rem; margin: 1.2rem 0 0.5rem; color: var(--purple); }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1.2rem 1.5rem; margin: 0.8rem 0; }
+  .card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; }
+
+  /* Architecture Diagram */
+  .arch-layer { border: 1px solid var(--border); border-radius: 8px; padding: 1rem 1.2rem; margin: 0.5rem 0; position: relative; }
+  .arch-layer .layer-label { position: absolute; top: -0.6rem; left: 1rem; background: var(--bg); padding: 0 0.5rem; font-size: 0.8rem; font-weight: 600; }
+  .layer-hw .layer-label { color: var(--orange); border: 1px solid var(--orange); }
+  .layer-sim .layer-label { color: var(--green); border: 1px solid var(--green); }
+  .layer-train .layer-label { color: var(--accent); border: 1px solid var(--accent); }
+  .layer-doc .layer-label { color: var(--purple); border: 1px solid var(--purple); }
+  .layer-hw { border-color: #f0883e44; }
+  .layer-sim { border-color: #3fb95044; }
+  .layer-train { border-color: #58a6ff44; }
+  .layer-doc { border-color: #bc8cff44; }
+  .arch-items { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.3rem; }
+  .arch-item { background: #21262d; border-radius: 4px; padding: 0.25rem 0.6rem; font-size: 0.82rem; font-family: 'Cascadia Code', 'Consolas', monospace; }
+  .arch-arrow { text-align: center; color: var(--text2); font-size: 1.2rem; margin: 0.3rem 0; }
+  .arch-arrow .label { font-size: 0.75rem; display: block; }
+
+  /* Phase Table */
+  table { width: 100%; border-collapse: collapse; margin: 0.5rem 0; font-size: 0.9rem; }
+  th { background: #21262d; padding: 0.6rem 0.8rem; text-align: left; border: 1px solid var(--border); font-weight: 600; }
+  td { padding: 0.5rem 0.8rem; border: 1px solid var(--border); }
+  .status-done { color: var(--green); font-weight: 600; }
+  .status-running { color: var(--yellow); font-weight: 600; }
+  .status-partial { color: var(--orange); font-weight: 600; }
+  .status-pending { color: var(--text2); }
+
+  /* Data Flow */
+  .flow { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; margin: 0.5rem 0; font-size: 0.88rem; }
+  .flow-step { background: #21262d; border-radius: 6px; padding: 0.4rem 0.8rem; border: 1px solid var(--border); white-space: nowrap; }
+  .flow-step.core { border-color: var(--accent); background: #1a2332; }
+  .flow-arrow { color: var(--text2); font-size: 1rem; }
+
+  /* File Tree */
+  .tree { font-family: 'Cascadia Code', 'Consolas', monospace; font-size: 0.82rem; line-height: 1.8; color: var(--text2); }
+  .tree .dir { color: var(--accent); }
+  .tree .file-py { color: var(--green); }
+  .tree .file-md { color: var(--purple); }
+  .tree .file-xml { color: var(--orange); }
+  .tree .file-other { color: var(--text2); }
+  .tree .comment { color: #484f58; margin-left: 0.5rem; }
+
+  /* Tech Stack */
+  .tech-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; }
+  .tech-item { background: #21262d; border-radius: 6px; padding: 0.5rem 0.8rem; font-size: 0.85rem; }
+  .tech-item .name { font-weight: 600; }
+  .tech-item .ver { color: var(--text2); font-size: 0.8rem; }
+
+  /* Pipeline Progress */
+  .pipeline { display: flex; gap: 0; margin: 1rem 0; }
+  .pipe-stage { flex: 1; text-align: center; padding: 0.5rem 0.3rem; font-size: 0.8rem; border-right: 2px solid var(--bg); }
+  .pipe-stage:last-child { border-right: none; }
+  .pipe-stage .num { font-size: 1.1rem; font-weight: 700; }
+  .pipe-done { background: #1a3a2a; color: var(--green); }
+  .pipe-running { background: #3a2a1a; color: var(--yellow); animation: pulse 2s infinite; }
+  .pipe-partial { background: #2a2a1a; color: var(--orange); }
+  .pipe-pending { background: #1a1a1a; color: var(--text2); }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.7; } }
+
+  /* Status Box */
+  .status-box { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin: 0.5rem 0; }
+  .stat { background: #21262d; border-radius: 6px; padding: 0.6rem 1rem; }
+  .stat .val { font-size: 1.3rem; font-weight: 700; }
+  .stat .lbl { font-size: 0.78rem; color: var(--text2); }
+  .stat .val.green { color: var(--green); }
+  .stat .val.blue { color: var(--accent); }
+  .stat .val.yellow { color: var(--yellow); }
+
+  details { margin: 0.5rem 0; }
+  summary { cursor: pointer; color: var(--accent); font-weight: 500; padding: 0.3rem 0; }
+  details[open] summary { margin-bottom: 0.5rem; }
+
+  code { background: #21262d; padding: 0.1rem 0.4rem; border-radius: 3px; font-size: 0.85rem; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .badge { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 10px; font-size: 0.75rem; font-weight: 600; }
+  .badge-green { background: #1a3a2a; color: var(--green); }
+  .badge-yellow { background: #3a2a1a; color: var(--yellow); }
+
+  .footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border); color: var(--text2); font-size: 0.8rem; text-align: center; }
+</style>
+</head>
+<body>
+
+<h1><span>SO-ARM101</span> 项目架构总览</h1>
+<p class="subtitle">无硬件仿真学习 Pipeline &mdash; MuJoCo 仿真 + LeRobot + 远程 GPU 训练 &mdash; 最后更新 2026-05-10</p>
+
+<!-- ============================================================ -->
+<h2>核心理念</h2>
+<div class="card">
+  <p>在<strong>本地 Windows（无独显）</strong>上用 MuJoCo 仿真采集 SO-101 机械臂数据，通过 <strong>HuggingFace Hub</strong> 同步到远程 <strong>RTX 6000D</strong> 上训练策略模型，最终实现 sim-to-real 部署。</p>
+  <p style="margin-top:0.5rem; color:var(--text2); font-size:0.9rem;">Fork 自 <a href="https://github.com/horndeer/SO-ARM101-LeRobot">horndeer/SO-ARM101-LeRobot</a>（TheRobotStudio &amp; HuggingFace），本项目聚焦于无硬件训练 Pipeline。</p>
+</div>
+
+<!-- ============================================================ -->
+<h2>Pipeline 进度</h2>
+
+<div class="pipeline">
+  <div class="pipe-stage pipe-done"><div class="num">0</div>环境验证<br><span class="badge badge-green">Done</span></div>
+  <div class="pipe-stage pipe-done"><div class="num">1</div>PushT 练手<br><span class="badge badge-green">Done</span></div>
+  <div class="pipe-stage pipe-done"><div class="num">2</div>数据采集<br><span class="badge badge-green">Done</span></div>
+  <div class="pipe-stage pipe-running"><div class="num">3</div>GPU 训练<br><span class="badge badge-yellow">Running</span></div>
+  <div class="pipe-stage pipe-partial"><div class="num">4</div>VLA 探索<br><span style="color:var(--orange);">Partial</span></div>
+</div>
+
+<table>
+  <thead><tr><th>Phase</th><th>目标</th><th>状态</th><th>关键产出</th></tr></thead>
+  <tbody>
+    <tr><td><strong>0. 环境验证</strong></td><td>本地 venv + 远程 GPU + HF 登录</td><td class="status-done">Done</td><td>lerobot 0.5.1, mujoco 3.8.0, RTX6000 conda env</td></tr>
+    <tr><td><strong>1. PushT 练手</strong></td><td>验证训练 pipeline 端到端</td><td class="status-done">Done</td><td>Diffusion Policy 10步 (CPU), 3GB checkpoints</td></tr>
+    <tr><td><strong>2. 数据采集</strong></td><td>MuJoCo 仿真采集 SO-101 数据</td><td class="status-done">Done</td><td><code>PhangHongHao/so101_sim</code> (10 eps, 800 帧)</td></tr>
+    <tr><td><strong>3. GPU 训练</strong></td><td>RTX6000 上训练 ACT 策略</td><td class="status-running">Running</td><td>step ~1400/10000, loss 0.529, ETA ~3.5h</td></tr>
+    <tr><td><strong>4. VLA 探索</strong></td><td>SmolVLA 加载 / 微调</td><td class="status-partial">Partial</td><td>模型加载成功 (450M), groot_n1.py 兼容性修复</td></tr>
+  </tbody>
+</table>
+
+<!-- ============================================================ -->
+<h2>分层架构</h2>
+
+<!-- Hardware Layer -->
+<div class="arch-layer layer-hw">
+  <span class="layer-label">硬件层 Hardware</span>
+  <div class="arch-items" style="margin-top:0.4rem;">
+    <span class="arch-item" style="border-left: 2px solid var(--orange);">STL/ &mdash; 3D 打印件 (SO100 + SO101)</span>
+    <span class="arch-item" style="border-left: 2px solid var(--orange);">STEP/ &mdash; CAD 模型</span>
+    <span class="arch-item" style="border-left: 2px solid var(--orange);">Optional/ &mdash; 9 种可选配件 (相机支架/夹爪/底座)</span>
+    <span class="arch-item" style="border-left: 2px solid var(--orange);">Simulation/SO101/ &mdash; URDF + MJCF 物理模型</span>
+  </div>
+  <p style="color:var(--text2); font-size:0.82rem; margin-top:0.4rem;">6 自由度机械臂: shoulder_pan, shoulder_lift, elbow_flex, wrist_flex, wrist_roll, gripper &mdash; Feetech STS3215 舵机驱动</p>
+</div>
+
+<div class="arch-arrow">&darr;<span class="label">MuJoCo 物理引擎</span></div>
+
+<!-- Simulation Layer -->
+<div class="arch-layer layer-sim">
+  <span class="layer-label">仿真层 Simulation</span>
+  <div style="display:grid; grid-template-columns: 1fr 1fr; gap:0.5rem; margin-top:0.4rem;">
+    <div>
+      <h3 style="font-size:0.9rem; margin:0.3rem 0;">脚本</h3>
+      <div class="arch-items">
+        <span class="arch-item" style="border-left:2px solid var(--green);">sim_viewer.py</span>
+        <span class="arch-item" style="border-left:2px solid var(--green);">render_test.py</span>
+        <span class="arch-item" style="border-left:2px solid var(--green);">collect_sim_data.py &star;</span>
+        <span class="arch-item" style="border-left:2px solid var(--green);">convert_to_lerobot_dataset.py</span>
+      </div>
+    </div>
+    <div>
+      <h3 style="font-size:0.9rem; margin:0.3rem 0;">MuJoCo 场景文件</h3>
+      <div class="arch-items">
+        <span class="arch-item" style="border-left:2px solid var(--orange);">scene.xml</span>
+        <span class="arch-item" style="border-left:2px solid var(--orange);">so101_new_calib.xml</span>
+        <span class="arch-item" style="border-left:2px solid var(--orange);">so101_new_calib.urdf</span>
+        <span class="arch-item" style="border-left:2px solid var(--orange);">joints_properties.xml</span>
+      </div>
+    </div>
+  </div>
+  <p style="color:var(--text2); font-size:0.82rem; margin-top:0.6rem;"><code>collect_sim_data.py</code> 是核心：MuJoCo 离屏渲染 RGB + 记录关节角度/动作 &rarr; LeRobot 原生格式 &rarr; push_to_hub 上传 HF Hub</p>
+</div>
+
+<div class="arch-arrow">&darr;<span class="label">HuggingFace Hub（数据/模型同步）</span></div>
+
+<!-- Training Layer -->
+<div class="arch-layer layer-train">
+  <span class="layer-label">训练层 Training</span>
+  <div style="display:grid; grid-template-columns: 1fr 1fr; gap:1rem; margin-top:0.4rem;">
+    <div>
+      <h3 style="font-size:0.9rem; margin:0.3rem 0;">本地 CPU (验证)</h3>
+      <ul style="font-size:0.85rem; color:var(--text2); padding-left:1.2rem;">
+        <li>PushT Diffusion Policy &mdash; 验证 pipeline</li>
+        <li>SmolVLA 模型加载 (450M params)</li>
+        <li>数据格式转换 / 可视化</li>
+      </ul>
+    </div>
+    <div>
+      <h3 style="font-size:0.9rem; margin:0.3rem 0;">远程 RTX 6000D (训练)</h3>
+      <ul style="font-size:0.85rem; color:var(--text2); padding-left:1.2rem;">
+        <li><strong>ACT</strong> (52M params) &mdash; 主流 SO-101 策略 <span class="badge badge-yellow">Running</span></li>
+        <li>input: RGB image (480x640) + joint state (6D)</li>
+        <li>output: 100 步 action chunk (6D per step)</li>
+        <li>batch_size=64, num_workers=4, lr=1e-5</li>
+      </ul>
+    </div>
+  </div>
+  <div style="margin-top:0.6rem;">
+    <h3 style="font-size:0.9rem; margin:0.3rem 0;">策略对比</h3>
+    <table style="font-size:0.82rem;">
+      <tr><th>策略</th><th>参数量</th><th>特点</th><th>SO-101 HF 模型数</th></tr>
+      <tr><td><strong>ACT</strong></td><td>52M</td><td>Action Chunking, 主流方案</td><td>30+</td></tr>
+      <tr><td><strong>Diffusion Policy</strong></td><td>~30M</td><td>扩散去噪, 适合 PushT</td><td>&mdash;</td></tr>
+      <tr><td><strong>SmolVLA</strong></td><td>450M (99.9M trainable)</td><td>VLA, VLM backbone 冻结</td><td>4-5</td></tr>
+    </table>
+  </div>
+</div>
+
+<div class="arch-arrow">&darr;</div>
+
+<!-- Documentation Layer -->
+<div class="arch-layer layer-doc">
+  <span class="layer-label">文档层 Documentation</span>
+  <div class="arch-items" style="margin-top:0.4rem;">
+    <span class="arch-item" style="border-left:2px solid var(--purple);">no_hardware_deployment.md</span>
+    <span class="arch-item" style="border-left:2px solid var(--purple);">GPU_Train_Command_Reference.md</span>
+    <span class="arch-item" style="border-left:2px solid var(--purple);">RTX_Server_Guide.md</span>
+    <span class="arch-item" style="border-left:2px solid var(--purple);">Sim2Sim_Guide.md</span>
+    <span class="arch-item" style="border-left:2px solid var(--purple);">Multi_GPU_Deploy.MD</span>
+    <span class="arch-item" style="border-left:2px solid var(--purple);">training_logs/</span>
+    <span class="arch-item" style="border-left:2px solid var(--purple);">so101_references/</span>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>数据流</h2>
+
+<div class="card">
+  <div class="flow">
+    <span class="flow-step">MuJoCo scene.xml<br><small style="color:var(--text2)">物理场景定义</small></span>
+    <span class="flow-arrow">&rarr;</span>
+    <span class="flow-step core">collect_sim_data.py<br><small style="color:var(--text2)">离屏渲染 + 轨迹记录</small></span>
+    <span class="flow-arrow">&rarr;</span>
+    <span class="flow-step">LeRobotDataset<br><small style="color:var(--text2)">images/ + meta/</small></span>
+    <span class="flow-arrow">&rarr;</span>
+    <span class="flow-step core">push_to_hub<br><small style="color:var(--text2)">PhangHongHao/so101_sim</small></span>
+    <span class="flow-arrow">&rarr;</span>
+    <span class="flow-step">RTX 6000D<br><small style="color:var(--text2)">lerobot-train (ACT)</small></span>
+    <span class="flow-arrow">&rarr;</span>
+    <span class="flow-step">Trained Policy<br><small style="color:var(--text2)">PhangHongHao/so101_act</small></span>
+    <span class="flow-arrow">&rarr;</span>
+    <span class="flow-step">lerobot-eval<br><small style="color:var(--text2)">MuJoCo 验证成功率</small></span>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2>项目文件树</h2>
+
+<div class="card">
+<div class="tree">
+<pre>
+FuRoC-SO-ARM101-LeRobot/
+├── <span class="dir">Simulation/SO101/</span>          <span class="comment"># MuJoCo 仿真场景</span>
+│   ├── scene.xml              <span class="comment"># 主场景 (灯光/地面/物体)</span>
+│   ├── so101_new_calib.xml    <span class="comment"># MJCF 机器人定义</span>
+│   ├── so101_new_calib.urdf   <span class="comment"># URDF 机器人定义</span>
+│   └── <span class="dir">assets/</span>              <span class="comment"># 网格/纹理资源</span>
+│
+├── <span class="file-py">collect_sim_data.py</span>        <span class="comment"># ★ 核心数据采集 (MuJoCo → LeRobot)</span>
+├── <span class="file-py">render_test.py</span>             <span class="comment"># 离屏渲染验证</span>
+├── <span class="file-py">convert_to_lerobot_dataset.py</span> <span class="comment"># 旧格式转换</span>
+├── <span class="file-py">sim_viewer.py</span>              <span class="comment"># MuJoCo 交互查看器</span>
+│
+├── <span class="dir">docs/</span>                       <span class="comment"># 项目文档</span>
+│   ├── <span class="file-md">no_hardware_deployment.md</span>  <span class="comment"># ★ 5阶段 Pipeline 总文档</span>
+│   ├── <span class="file-md">GPU_Train_Command_Reference.md</span>
+│   ├── <span class="file-md">RTX_Server_Guide.md</span>
+│   ├── <span class="file-md">Sim2Sim_Guide.md</span>
+│   ├── <span class="file-md">Multi_GPU_Deploy.MD</span>
+│   ├── <span class="dir">training_logs/</span>          <span class="comment"># 逐日训练日志</span>
+│   │   ├── training_log_2026-05-09.md
+│   │   └── training_log_2026-05-10.md
+│   └── <span class="dir">so101_references/</span>      <span class="comment"># HF 模型调研 + 第三方演示</span>
+│       ├── README.md
+│       └── <span class="dir">videos/</span>  (*.gif)
+│
+├── <span class="dir">STL/</span>                        <span class="comment"># 3D 打印文件 (SO100 + SO101)</span>
+├── <span class="dir">STEP/</span>                       <span class="comment"># CAD 模型文件</span>
+├── <span class="dir">Optional/</span>                   <span class="comment"># 9 种可选硬件配件</span>
+├── <span class="dir">media/</span>                      <span class="comment"># README 图片资源</span>
+│
+├── <span class="file-other">.gitmodules</span>                <span class="comment"># submodule: SO-ARM101-LeRobot</span>
+├── <span class="file-other">.gitignore</span>                 <span class="comment"># 忽略 outputs/, .venv/, .claude/</span>
+└── <span class="file-md">README.md</span>                  <span class="comment"># GitHub 首页 (Pipeline 概览)</span>
+</pre>
+</div>
+</div>
+
+<!-- ============================================================ -->
+<h2>技术栈</h2>
+
+<div class="tech-grid">
+  <div class="tech-item"><span class="name">MuJoCo</span> <span class="ver">3.8.0</span><br>物理仿真 + 离屏渲染</div>
+  <div class="tech-item"><span class="name">LeRobot</span> <span class="ver">0.5.1</span><br>数据集管理 + 训练框架</div>
+  <div class="tech-item"><span class="name">PyTorch</span> <span class="ver">2.x</span><br>CPU 本地 / CUDA 远程</div>
+  <div class="tech-item"><span class="name">ACT</span> <span class="ver">52M</span><br>Action Chunking 策略</div>
+  <div class="tech-item"><span class="name">SmolVLA</span> <span class="ver">450M</span><br>Vision-Language-Action</div>
+  <div class="tech-item"><span class="name">RTX 6000D</span> <span class="ver">8&times;85GB</span><br>远程 GPU 训练</div>
+  <div class="tech-item"><span class="name">HuggingFace Hub</span><br>数据/模型同步</div>
+  <div class="tech-item"><span class="name">Python</span> <span class="ver">3.12</span><br>运行环境</div>
+  <div class="tech-item"><span class="name">pyav</span><br>视频解码 (CPU bound)</div>
+</div>
+
+<!-- ============================================================ -->
+<h2>当前训练状态</h2>
+
+<div class="status-box">
+  <div class="stat"><div class="val yellow">~1400 / 10000</div><div class="lbl">ACT 训练步数 (14%)</div></div>
+  <div class="stat"><div class="val blue">0.529</div><div class="lbl">Loss (step 1K checkpoint)</div></div>
+  <div class="stat"><div class="val green">64</div><div class="lbl">Batch Size</div></div>
+  <div class="stat"><div class="val blue">4</div><div class="lbl">Data Workers</div></div>
+</div>
+
+<details>
+  <summary>训练参数详情</summary>
+  <table style="font-size:0.85rem;">
+    <tr><td>Policy</td><td>ACT (52M params)</td></tr>
+    <tr><td>Dataset</td><td><code>PhangHongHao/so101_sim</code> (10 eps, 800 frames)</td></tr>
+    <tr><td>Device</td><td><code>cuda:0</code> on RTX 6000D</td></tr>
+    <tr><td>Batch Size</td><td>64</td></tr>
+    <tr><td>Num Workers</td><td>4 (pyav 视频解码并行)</td></tr>
+    <tr><td>Learning Rate</td><td>1e-5</td></tr>
+    <tr><td>Total Steps</td><td>10000</td></tr>
+    <tr><td>Save Frequency</td><td>每 2000 步</td></tr>
+    <tr><td>Output</td><td><code>/tmp/so101_act_train</code></td></tr>
+    <tr><td>GPU Memory</td><td>15.1 GB / 85.7 GB</td></tr>
+    <tr><td>Speed</td><td>~1.5s/step (视频解码瓶颈，非 GPU 计算)</td></tr>
+  </table>
+</details>
+
+<!-- ============================================================ -->
+<h2>已知问题与经验</h2>
+
+<div class="card">
+  <table style="font-size:0.85rem;">
+    <thead><tr><th>问题</th><th>原因</th><th>解决</th></tr></thead>
+    <tbody>
+      <tr><td>GPU 利用率 0%</td><td>pyav 视频解码是 CPU bound，52M 模型太小无法饱和 RTX6000</td><td>正常现象，增加 num_workers 提高数据吞吐</td></tr>
+      <tr><td>groot_n1.py 报 TypeError</td><td>Python 3.12 不允许 non-default field 跟在 default field 后</td><td>给 4 个 field 加 <code>default=None</code></td></tr>
+      <tr><td>batch_size=128 反而慢 10x</td><td>num_workers=0 时视频解码成同步瓶颈</td><td>batch_size=64 + num_workers=4</td></tr>
+      <tr><td>pip 安装无输出</td><td>Windows 上 <code>pip.exe</code> 输出被吞</td><td>用 <code>python -m pip install</code></td></tr>
+      <tr><td>davidlinjiahao 模型 404</td><td>HF 模型可能被删除/改名/设为私有</td><td>参考其他 SO-101 模型</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ============================================================ -->
+<h2>下一步计划</h2>
+
+<div class="card">
+  <ol style="padding-left:1.5rem; font-size:0.9rem;">
+    <li><strong>等 ACT 训练完成</strong> (~3.5h) &rarr; 推送模型到 <code>PhangHongHao/so101_act</code></li>
+    <li><strong>评估模型</strong> &rarr; 用 <code>lerobot-eval</code> 在 MuJoCo 中测试成功率</li>
+    <li><strong>生成推理视频</strong> &rarr; 训练好的策略在仿真中执行，录制视频</li>
+    <li><strong>增加数据量</strong> &rarr; 从 10 eps 扩展到 50-100 eps，可能提升成功率</li>
+    <li><strong>Sim2Real</strong> &rarr; 如有实体 SO-101，可尝试真实部署</li>
+  </ol>
+</div>
+
+<!-- ============================================================ -->
+<h2>参考资源</h2>
+
+<div class="card" style="font-size:0.88rem;">
+  <ul style="padding-left:1.2rem;">
+    <li><a href="https://github.com/phanghonghao/FuRoC-SO-ARM101-LeRobot">本项目 GitHub</a> (phanghonghao/FuRoC-SO-ARM101-LeRobot)</li>
+    <li><a href="https://github.com/huggingface/lerobot">LeRobot 官方仓库</a> (huggingface/lerobot)</li>
+    <li><a href="https://huggingface.co/docs/lerobot/index">LeRobot 文档</a></li>
+    <li><a href="https://huggingface.co/datasets/PhangHongHao/so101_sim">我们的数据集</a> (PhangHongHao/so101_sim)</li>
+    <li>SO-101 参考模型调研: <code>docs/so101_references/README.md</code></li>
+  </ul>
+</div>
+
+<div class="footer">
+  SO-ARM101 No-Hardware Training Pipeline &mdash; Generated 2026-05-10
+</div>
+
+</body>
+</html>
