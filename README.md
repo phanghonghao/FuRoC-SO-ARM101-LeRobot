@@ -5,7 +5,7 @@
 
 No-hardware simulation learning pipeline for SO-101 robot arm: MuJoCo simulation + LeRobot + remote GPU training.
 
-[Architecture Overview](docs/architecture_overview.html) | [Pipeline Guide](docs/no_hardware_deployment.md) | [Training Logs](docs/training_logs/)
+[Orchestrator Architecture](docs/github_readme/orchestrator_architecture.md) | [Pipeline Guide](docs/no_hardware_deployment.md) | [Training Logs](docs/training_logs/)
 
 ---
 
@@ -102,6 +102,42 @@ lerobot-train --dataset.repo_id=<your_dataset> --policy.type=act --policy.device
 
 Full walkthrough: [docs/no_hardware_deployment.md](docs/no_hardware_deployment.md)
 
+## Automated Pipeline (Orchestrator)
+
+YAML-driven automated training pipeline with crash recovery and overfitting detection.
+
+```
+┌──────────────┐     ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+│  Collection   │ ──► │   Training   │ ──► │  Evaluation  │ ──► │  Comparison  │
+│ DataCollector │     │ TrainLauncher│     │  EvalRunner  │     │ (optional)   │
+│ + LossMonitor │     │ + LossMonitor│     │  + metrics   │     │              │
+└──────────────┘     └──────────────┘     └──────────────┘     └──────────────┘
+       ▲                    ▲                    ▲
+       │                    │                    │
+  ┌────┴────────────────────┴────────────────────┴────┐
+  │            Arm101Orchestrator (main loop)          │
+  │  phase_manager ─ state_store ─ crash recovery      │
+  └───────────────────────────────────────────────────┘
+```
+
+```bash
+# Full pipeline (collection → training → evaluation)
+python -m orchestrator_arm101.arm101_orchestrator \
+    --plan training_plans/so101_push_plan.yaml --device cuda:7 --fresh
+
+# Dry run (preview plan)
+python -m orchestrator_arm101.arm101_orchestrator \
+    --plan training_plans/so101_push_plan.yaml --dry-run
+
+# Resume from specific phase
+python -m orchestrator_arm101.arm101_orchestrator \
+    --plan training_plans/rtx_train_plan.yaml --start-from train_act --device cuda:6
+```
+
+**Features:** Three-layer config merging, overfitting detection (loss plateau + increase), auto-retry (2x), atomic state persistence, PID-based crash recovery.
+
+Full architecture docs: [docs/github_readme/orchestrator_architecture.md](docs/github_readme/orchestrator_architecture.md)
+
 ## Project Structure
 
 ```
@@ -118,6 +154,8 @@ FuRoC-SO-ARM101-LeRobot/
 ├── training_plans/                  # Training plan YAML configs
 ├── Simulation/SO101/                # MuJoCo scene + URDF/MJCF
 ├── docs/
+│   ├── github_readme/               # GitHub README assets
+│   │   └── orchestrator_architecture.md  # Orchestrator full docs
 │   ├── no_hardware_deployment.md    # 5-phase pipeline guide
 │   ├── architecture_overview.html   # Full architecture document
 │   ├── so101_references/            # HF model survey + demos
