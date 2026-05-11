@@ -164,10 +164,21 @@ python -u -c "
 "
 ```
 
+**Environment variable handling:**
+
+| Variable | Purpose | When Applied |
+|----------|---------|-------------|
+| `PYTHONUNBUFFERED=1` | Real-time log output | Always |
+| `LD_PRELOAD` | torchcodec libstdc++ fix (CXXABI_1.3.15) | Auto-detected from `$CONDA_PREFIX/lib/libstdc++.so.6` |
+| `CUDA_VISIBLE_DEVICES` | LeRobot v0.5.1 `is_amp_available` bug workaround | When `device` is `cuda:N` |
+
+**Device bug workaround:** LeRobot v0.5.1's `is_amp_available("cuda:N")` crashes with `ValueError` — only accepts `"cuda"`, `"cpu"`, `"xpu"`, `"mps"`. The launcher automatically sets `CUDA_VISIBLE_DEVICES=N` and overrides `--policy.device=cuda` when a specific GPU index is requested.
+
 **Features:**
-- `PYTHONUNBUFFERED=1` for real-time log output
+- `video_backend="torchcodec"` by default (8.6x faster than pyav for video decoding)
 - Graceful stop: SIGTERM → wait 30s → SIGKILL
 - PID tracking for crash recovery
+- Default `num_workers=8` (override via training config)
 
 ### 6. LossMonitor (`loss_monitor.py`)
 
