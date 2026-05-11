@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 780 340" font-family="'Segoe UI',system-ui,sans-serif">
+  <defs>
+    <marker id="af" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,1 L10,5 L0,9z" fill="#64748b"/></marker>
+    <marker id="ab" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M10,1 L0,5 L10,9z" fill="#94a3b8"/></marker>
+    <filter id="ss"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity=".1"/></filter>
+  </defs>
+
+  <rect width="780" height="340" rx="12" fill="#f8fafc"/>
+  <text x="390" y="28" text-anchor="middle" font-size="15" font-weight="700" fill="#1e293b">Orchestrator Event Loop</text>
+
+  <!-- pending state -->
+  <rect x="40" y="60" width="140" height="55" rx="28" fill="#dbeafe" stroke="#3b82f6" stroke-width="2" filter="url(#ss)"/>
+  <text x="110" y="84" text-anchor="middle" font-size="12" font-weight="600" fill="#2563eb">pending</text>
+  <text x="110" y="100" text-anchor="middle" font-size="9" fill="#3b82f6">start_phase()</text>
+
+  <!-- running state -->
+  <rect x="280" y="60" width="140" height="55" rx="28" fill="#fef3c7" stroke="#f59e0b" stroke-width="2" filter="url(#ss)"/>
+  <text x="350" y="84" text-anchor="middle" font-size="12" font-weight="600" fill="#d97706">running</text>
+  <text x="350" y="100" text-anchor="middle" font-size="9" fill="#f59e0b">monitor_phase()</text>
+
+  <!-- complete state -->
+  <rect x="520" y="60" width="140" height="55" rx="28" fill="#d1fae5" stroke="#10b981" stroke-width="2" filter="url(#ss)"/>
+  <text x="590" y="84" text-anchor="middle" font-size="12" font-weight="600" fill="#059669">complete</text>
+  <text x="590" y="100" text-anchor="middle" font-size="9" fill="#10b981">advance()</text>
+
+  <!-- failed state -->
+  <rect x="280" y="220" width="140" height="55" rx="28" fill="#fecaca" stroke="#ef4444" stroke-width="2" filter="url(#ss)"/>
+  <text x="350" y="244" text-anchor="middle" font-size="12" font-weight="600" fill="#dc2626">failed</text>
+  <text x="350" y="260" text-anchor="middle" font-size="9" fill="#ef4444">retry (max 2)</text>
+
+  <!-- Arrows -->
+  <!-- pending → running -->
+  <line x1="180" y1="87" x2="278" y2="87" stroke="#64748b" stroke-width="2" marker-end="url(#af)"/>
+  <text x="229" y="80" text-anchor="middle" font-size="9" fill="#64748b">dispatch</text>
+
+  <!-- running → complete -->
+  <line x1="420" y1="87" x2="518" y2="87" stroke="#64748b" stroke-width="2" marker-end="url(#af)"/>
+  <text x="469" y="80" text-anchor="middle" font-size="9" fill="#64748b">done</text>
+
+  <!-- running → failed -->
+  <line x1="350" y1="115" x2="350" y2="218" stroke="#64748b" stroke-width="2" marker-end="url(#af)"/>
+  <text x="365" y="170" font-size="9" fill="#64748b">error /</text>
+  <text x="365" y="182" font-size="9" fill="#64748b">overfit</text>
+
+  <!-- failed → pending (retry) -->
+  <path d="M280,250 L180,250 L140,200 L140,117" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5,3" fill="none" marker-end="url(#af)"/>
+  <text x="185" y="240" font-size="9" fill="#94a3b8">retry</text>
+
+  <!-- complete → next pending -->
+  <path d="M660,87 L700,87 L700,310 L110,310 L110,117" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5,3" fill="none" marker-end="url(#af)"/>
+  <text x="710" y="200" font-size="9" fill="#94a3b8" transform="rotate(90,710,200)">next phase</text>
+
+  <!-- Phase dispatch table -->
+  <rect x="500" y="175" width="260" height="120" rx="8" fill="#fff" stroke="#e2e8f0" stroke-width="1" filter="url(#ss)"/>
+  <text x="630" y="195" text-anchor="middle" font-size="11" font-weight="600" fill="#1e293b">Phase Dispatch</text>
+  <line x1="510" y1="202" x2="750" y2="202" stroke="#e2e8f0"/>
+  <text x="520" y="218" font-size="9" fill="#3b82f6" font-weight="600">collection</text><text x="600" y="218" font-size="9" fill="#64748b">DataCollector.run()</text>
+  <text x="520" y="236" font-size="9" fill="#f59e0b" font-weight="600">training</text><text x="600" y="236" font-size="9" fill="#64748b">TrainingLauncher + Monitor</text>
+  <text x="520" y="254" font-size="9" fill="#10b981" font-weight="600">evaluation</text><text x="600" y="254" font-size="9" fill="#64748b">EvalRunner.evaluate()</text>
+  <text x="520" y="272" font-size="9" fill="#94a3b8" font-weight="600">comparison</text><text x="600" y="272" font-size="9" fill="#64748b">(same as training)</text>
+  <text x="520" y="290" font-size="9" fill="#64748b">synchronous = collection, evaluation</text>
+</svg>

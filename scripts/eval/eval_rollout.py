@@ -3,7 +3,7 @@
 Usage:
     python eval_rollout.py --checkpoint outputs/.../pretrained_model --episodes 10
 
-Can be run locally (MuJoCo CPU) or on RTX (set MUJOCO_GL=egl for headless).
+Can be run locally (MuJoCo CPU) or on RTX (headless with EGL auto-detected).
 """
 
 import argparse
@@ -12,8 +12,13 @@ import os
 import sys
 from pathlib import Path
 
+# EGL auto-setup: must be set before mujoco/torch import
+# On Linux without DISPLAY, use EGL for headless GPU rendering
+if sys.platform == "linux" and "DISPLAY" not in os.environ and "MUJOCO_GL" not in os.environ:
+    os.environ["MUJOCO_GL"] = "egl"
+
 # Add project root to path
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from orchestrator_arm101.eval_runner import EvalRunner
 
@@ -39,10 +44,6 @@ def main():
     print(f"[eval_rollout] Device: {args.device}")
     print(f"[eval_rollout] Episodes: {args.episodes}")
 
-    # Set MuJoCo GL for headless rendering
-    if "cuda" in args.device and "MUJOCO_GL" not in os.environ:
-        os.environ["MUJOCO_GL"] = "egl"
-
     eval_config = {
         "n_episodes": args.episodes,
         "max_steps": args.max_steps,
@@ -62,6 +63,7 @@ def main():
         print(f"  Videos:       {results['video_paths']}")
 
     if args.output:
+        Path(args.output).parent.mkdir(parents=True, exist_ok=True)
         with open(args.output, "w") as f:
             json.dump(results, f, indent=2)
         print(f"  Results saved: {args.output}")

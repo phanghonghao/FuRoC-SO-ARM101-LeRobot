@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 280" font-family="'Segoe UI',system-ui,sans-serif">
+  <defs>
+    <marker id="a1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,1 L10,5 L0,9z" fill="#64748b"/></marker>
+    <linearGradient id="gc" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#3b82f6"/><stop offset="100%" stop-color="#2563eb"/></linearGradient>
+    <linearGradient id="gt" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#d97706"/></linearGradient>
+    <linearGradient id="ge" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#10b981"/><stop offset="100%" stop-color="#059669"/></linearGradient>
+    <linearGradient id="gx" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#94a3b8"/><stop offset="100%" stop-color="#64748b"/></linearGradient>
+    <linearGradient id="gy" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#ef4444"/><stop offset="100%" stop-color="#dc2626"/></linearGradient>
+    <filter id="s1"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity=".08"/></filter>
+  </defs>
+
+  <rect width="880" height="280" rx="12" fill="#f8fafc"/>
+
+  <!-- Title -->
+  <text x="440" y="28" text-anchor="middle" font-size="15" font-weight="700" fill="#1e293b">YAML-Driven Pipeline Phases</text>
+
+  <!-- YAML Plan input -->
+  <rect x="20" y="50" width="100" height="70" rx="8" fill="url(#gy)" filter="url(#s1)"/>
+  <text x="70" y="72" text-anchor="middle" font-size="11" font-weight="600" fill="#fff">YAML Plan</text>
+  <text x="70" y="88" text-anchor="middle" font-size="9" fill="#fecaca">defaults +</text>
+  <text x="70" y="100" text-anchor="middle" font-size="9" fill="#fecaca">phases[]</text>
+  <line x1="120" y1="85" x2="148" y2="85" stroke="#64748b" stroke-width="1.5" marker-end="url(#a1)"/>
+
+  <!-- Phase 1: Collection -->
+  <rect x="150" y="45" width="145" height="80" rx="10" fill="url(#gc)" filter="url(#s1)"/>
+  <text x="222" y="68" text-anchor="middle" font-size="12" font-weight="600" fill="#fff">Collection</text>
+  <line x1="165" y1="78" x2="280" y2="78" stroke="#ffffff30" stroke-width="1"/>
+  <text x="165" y="95" font-size="10" fill="#dbeafe">MuJoCo scripted demo</text>
+  <text x="165" y="110" font-size="10" fill="#dbeafe">LeRobotDataset format</text>
+  <circle cx="290" cy="55" r="8" fill="#dbeafe"/><text x="290" y="59" text-anchor="middle" font-size="9" font-weight="700" fill="#2563eb">1</text>
+
+  <!-- Arrow 1→2 -->
+  <line x1="295" y1="85" x2="325" y2="85" stroke="#64748b" stroke-width="2" marker-end="url(#a1)"/>
+
+  <!-- Phase 2: Training -->
+  <rect x="328" y="45" width="165" height="80" rx="10" fill="url(#gt)" filter="url(#s1)"/>
+  <text x="410" y="68" text-anchor="middle" font-size="12" font-weight="600" fill="#fff">Training</text>
+  <line x1="343" y1="78" x2="478" y2="78" stroke="#ffffff30" stroke-width="1"/>
+  <text x="343" y="95" font-size="10" fill="#fef3c7">ACT / Diffusion policy</text>
+  <text x="343" y="110" font-size="10" fill="#fef3c7">LossMonitor + overfitting</text>
+  <circle cx="488" cy="55" r="8" fill="#fef3c7"/><text x="488" y="59" text-anchor="middle" font-size="9" font-weight="700" fill="#d97706">2</text>
+
+  <!-- Arrow 2→3 -->
+  <line x1="493" y1="85" x2="523" y2="85" stroke="#64748b" stroke-width="2" marker-end="url(#a1)"/>
+
+  <!-- Phase 3: Evaluation -->
+  <rect x="526" y="45" width="145" height="80" rx="10" fill="url(#ge)" filter="url(#s1)"/>
+  <text x="598" y="68" text-anchor="middle" font-size="12" font-weight="600" fill="#fff">Evaluation</text>
+  <line x1="541" y1="78" x2="656" y2="78" stroke="#ffffff30" stroke-width="1"/>
+  <text x="541" y="95" font-size="10" fill="#d1fae5">MuJoCo rollout</text>
+  <text x="541" y="110" font-size="10" fill="#d1fae5">success_rate + video</text>
+  <circle cx="666" cy="55" r="8" fill="#d1fae5"/><text x="666" y="59" text-anchor="middle" font-size="9" font-weight="700" fill="#059669">3</text>
+
+  <!-- Arrow 3→4 (dashed) -->
+  <line x1="671" y1="85" x2="710" y2="85" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#a1)"/>
+
+  <!-- Phase 4: Comparison (optional) -->
+  <rect x="713" y="45" width="140" height="80" rx="10" fill="url(#gx)" filter="url(#s1)" opacity=".7"/>
+  <text x="783" y="68" text-anchor="middle" font-size="12" font-weight="600" fill="#fff">Comparison</text>
+  <line x1="728" y1="78" x2="838" y2="78" stroke="#ffffff30" stroke-width="1"/>
+  <text x="728" y="95" font-size="10" fill="#e2e8f0">enabled: false</text>
+  <text x="728" y="110" font-size="10" fill="#e2e8f0">(optional A/B)</text>
+
+  <!-- Crash Recovery bar -->
+  <rect x="20" y="160" width="840" height="48" rx="10" fill="#fff" stroke="#e2e8f0" stroke-width="1.5" filter="url(#s1)"/>
+  <rect x="32" y="172" width="90" height="24" rx="5" fill="#ef4444" opacity=".9"/>
+  <text x="77" y="189" text-anchor="middle" font-size="10" font-weight="600" fill="#fff">StateStore</text>
+  <text x="140" y="189" font-size="11" fill="#64748b">Crash recovery via atomic JSON writes — resume from last checkpoint on restart</text>
+
+  <!-- depends_on arrows -->
+  <text x="222" y="150" text-anchor="middle" font-size="9" fill="#94a3b8">depends_on: []</text>
+  <text x="410" y="150" text-anchor="middle" font-size="9" fill="#94a3b8">depends_on: [collect]</text>
+  <text x="598" y="150" text-anchor="middle" font-size="9" fill="#94a3b8">depends_on: [train_act]</text>
+
+  <!-- Output -->
+  <text x="440" y="245" text-anchor="middle" font-size="11" fill="#94a3b8">Output: trained checkpoint + eval metrics + eval video + orchestrator_state.json</text>
+
+  <!-- Legend -->
+  <rect x="20" y="260" width="8" height="8" rx="2" fill="url(#gc)"/><text x="34" y="268" font-size="9" fill="#64748b">synchronous</text>
+  <rect x="120" y="260" width="8" height="8" rx="2" fill="url(#gt)"/><text x="134" y="268" font-size="9" fill="#64748b">async (subprocess + monitor)</text>
+  <rect x="300" y="260" width="8" height="8" rx="2" fill="url(#ge)"/><text x="314" y="268" font-size="9" fill="#64748b">synchronous</text>
+  <rect x="430" y="260" width="8" height="8" rx="2" fill="url(#gx)" opacity=".7"/><text x="444" y="268" font-size="9" fill="#64748b">disabled by default</text>
+</svg>

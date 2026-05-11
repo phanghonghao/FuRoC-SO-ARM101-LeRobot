@@ -6,9 +6,9 @@
 
 `orchestrator_arm101` is a YAML-driven pipeline orchestrator that automates the full imitation learning workflow:
 
-```
-Collection → Training → Evaluation → (Comparison)
-```
+<p align="center">
+  <img src="orchestrator_pipeline.svg" alt="Pipeline Phases" width="880"/>
+</p>
 
 Each phase is defined in a YAML plan file, with three-layer config merging, crash recovery, and overfitting detection.
 
@@ -28,17 +28,9 @@ orchestrator_arm101/
 └── eval_runner.py              # Checkpoint evaluation in MuJoCo
 ```
 
-### Module Dependency Graph
-
-```
-arm101_orchestrator.py (Main Controller)
-  ├── phase_manager.py      → PhaseConfig parsing, DAG ordering
-  ├── state_store.py        → OrchestratorState persistence
-  ├── data_collector.py     → MuJoCo + LeRobotDataset collection
-  ├── training_launcher.py  → subprocess.Popen + sys.argv wrapper
-  │     └── loss_monitor.py → regex log parsing + overfitting detection
-  └── eval_runner.py        → ACTPolicy/DiffusionPolicy + MuJoCo rollout
-```
+<p align="center">
+  <img src="orchestrator_modules.svg" alt="Module Dependency Graph" width="860"/>
+</p>
 
 ## Core Components
 
@@ -46,23 +38,9 @@ arm101_orchestrator.py (Main Controller)
 
 Main controller with a 2-level event loop:
 
-```python
-while True:
-    match state.current_phase_status:
-        "pending"   → start_phase()      # dispatch by phase_type
-        "running"   → monitor_phase()     # poll progress
-        "complete"  → advance()           # move to next phase
-        "failed"    → handle_failure()    # retry (max 2) or stop
-```
-
-**Phase dispatch table:**
-
-| phase_type  | Start                     | Monitor              |
-|-------------|---------------------------|----------------------|
-| collection  | `DataCollector.run()`     | synchronous          |
-| training    | `TrainingLauncher.launch()` | `LossMonitor.poll()` |
-| evaluation  | `EvalRunner.evaluate_checkpoint()` | synchronous  |
-| comparison  | same as training          | same as training     |
+<p align="center">
+  <img src="orchestrator_statemachine.svg" alt="Event Loop State Machine" width="780"/>
+</p>
 
 **Features:**
 - `--fresh`: clear saved state, start from scratch
@@ -76,23 +54,9 @@ while True:
 
 Parses YAML training plans into `PhaseConfig` dataclasses with **three-layer config merging**:
 
-```
-defaults (plan-level) → phase override → result
-```
-
-Example:
-```yaml
-defaults:
-  training:
-    batch_size: 128
-    lr: 1e-4
-
-phases:
-  - id: train_act
-    training:
-      batch_size: 256     # overrides default 128
-      # lr inherits 1e-4
-```
+<p align="center">
+  <img src="orchestrator_config_merge.svg" alt="Three-Layer Config Merge" width="640"/>
+</p>
 
 **PhaseConfig fields:**
 

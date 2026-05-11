@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 300" font-family="'Segoe UI',system-ui,sans-serif">
+  <defs>
+    <marker id="ac" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,1 L10,5 L0,9z" fill="#64748b"/></marker>
+    <filter id="sc"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity=".1"/></filter>
+  </defs>
+
+  <rect width="640" height="300" rx="12" fill="#f8fafc"/>
+  <text x="320" y="28" text-anchor="middle" font-size="15" font-weight="700" fill="#1e293b">Three-Layer Config Merging</text>
+
+  <!-- Layer 1: defaults -->
+  <rect x="40" y="55" width="200" height="100" rx="10" fill="#fff" stroke="#3b82f6" stroke-width="2" filter="url(#sc)"/>
+  <rect x="40" y="55" width="200" height="28" rx="10" fill="#3b82f6"/>
+  <rect x="40" y="70" width="200" height="13" fill="#3b82f6"/>
+  <text x="140" y="74" text-anchor="middle" font-size="11" font-weight="600" fill="#fff">Layer 1: defaults</text>
+  <text x="55" y="103" font-size="10" fill="#64748b" font-family="monospace">batch_size: 128</text>
+  <text x="55" y="120" font-size="10" fill="#64748b" font-family="monospace">lr: 1e-4</text>
+  <text x="55" y="137" font-size="10" fill="#64748b" font-family="monospace">max_steps: 50000</text>
+  <text x="55" y="148" font-size="8" fill="#94a3b8">plan-level defaults</text>
+
+  <!-- Plus sign -->
+  <text x="268" y="110" text-anchor="middle" font-size="24" font-weight="300" fill="#94a3b8">+</text>
+
+  <!-- Layer 2: phase override -->
+  <rect x="290" y="55" width="200" height="100" rx="10" fill="#fff" stroke="#f59e0b" stroke-width="2" filter="url(#sc)"/>
+  <rect x="290" y="55" width="200" height="28" rx="10" fill="#f59e0b"/>
+  <rect x="290" y="70" width="200" height="13" fill="#f59e0b"/>
+  <text x="390" y="74" text-anchor="middle" font-size="11" font-weight="600" fill="#fff">Layer 2: phase override</text>
+  <text x="305" y="103" font-size="10" fill="#64748b" font-family="monospace">batch_size: <tspan fill="#f59e0b" font-weight="600">256</tspan></text>
+  <text x="305" y="120" font-size="10" fill="#94a3b8" font-family="monospace">lr: (inherited)</text>
+  <text x="305" y="137" font-size="10" fill="#64748b" font-family="monospace">max_steps: <tspan fill="#f59e0b" font-weight="600">30000</tspan></text>
+  <text x="305" y="148" font-size="8" fill="#94a3b8">per-phase overrides</text>
+
+  <!-- Equals sign -->
+  <text x="268" y="215" text-anchor="middle" font-size="24" font-weight="300" fill="#94a3b8">=</text>
+
+  <!-- Arrows down -->
+  <line x1="140" y1="160" x2="140" y2="180" stroke="#64748b" stroke-width="1.5" marker-end="url(#ac)"/>
+  <line x1="390" y1="160" x2="390" y2="180" stroke="#64748b" stroke-width="1.5" marker-end="url(#ac)"/>
+
+  <!-- Result -->
+  <rect x="40" y="185" width="200" height="100" rx="10" fill="#fff" stroke="#10b981" stroke-width="2" filter="url(#sc)"/>
+  <rect x="40" y="185" width="200" height="28" rx="10" fill="#10b981"/>
+  <rect x="40" y="200" width="200" height="13" fill="#10b981"/>
+  <text x="140" y="204" text-anchor="middle" font-size="11" font-weight="600" fill="#fff">Merged PhaseConfig</text>
+  <text x="55" y="233" font-size="10" fill="#059669" font-weight="600" font-family="monospace">batch_size: 256</text>
+  <text x="55" y="250" font-size="10" fill="#64748b" font-family="monospace">lr: 1e-4</text>
+  <text x="55" y="267" font-size="10" fill="#059669" font-weight="600" font-family="monospace">max_steps: 30000</text>
+  <text x="55" y="280" font-size="8" fill="#94a3b8">effective config</text>
+
+  <!-- merge annotation -->
+  <rect x="290" y="195" width="300" height="80" rx="8" fill="#f8fafc" stroke="#e2e8f0"/>
+  <text x="440" y="215" text-anchor="middle" font-size="10" font-weight="600" fill="#1e293b">Merge Rules</text>
+  <text x="305" y="233" font-size="9" fill="#64748b">1. Start from defaults</text>
+  <text x="305" y="248" font-size="9" fill="#64748b">2. Override with phase-specific values</text>
+  <text x="305" y="263" font-size="9" fill="#64748b">3. Unset keys inherit from defaults</text>
+  <line x1="240" y1="240" x2="288" y2="240" stroke="#94a3b8" stroke-width="1" stroke-dasharray="3,3" marker-end="url(#ac)"/>
+</svg>
