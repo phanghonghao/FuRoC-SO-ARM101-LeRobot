@@ -5,9 +5,15 @@
 
 No-hardware simulation learning pipeline for SO-101 robot arm: MuJoCo simulation + LeRobot + remote GPU training.
 
-[Orchestrator Architecture](docs/github_readme/orchestrator_architecture.md) | [Pipeline Guide](docs/no_hardware_deployment.md) | [Training Logs](docs/training_logs/)
+[Orchestrator Architecture](docs/github_readme/orchestrator_architecture.md) | [Pipeline Guide](docs/guides/no_hardware_deployment.md) | [Training Logs](docs/training/training_logs/)
 
 ---
+
+## Architecture
+
+<p align="center">
+  <img src="docs/github_readme/architecture.svg" alt="Project Architecture" />
+</p>
 
 ## Pipeline
 
@@ -15,49 +21,38 @@ No-hardware simulation learning pipeline for SO-101 robot arm: MuJoCo simulation
 |:-----:|:------:|:------------|
 | 0 | Done | Environment setup (local venv + RTX 6000D + HF Hub) |
 | 1 | Done | PushT simulation training (CPU, validation) |
-| 2 | Done | SO-101 MuJoCo data collection (300 eps, 30K frames) |
+| 2 | Done | SO-101 MuJoCo data collection (10 eps, 800 frames) |
 | 3 | **Active** | **ACT training on RTX 6000D (84M params, 50K steps, torchcodec + AMP)** |
-| 4 | **Active** | **PushT Diffusion on RTX 6000D (263M params, 100K steps, torchcodec)** |
+| 4 | Done | PushT Diffusion evaluation on RTX 6000D |
 
 ## Results
 
-### ACT Policy Evaluation (SO-101 MuJoCo Simulation)
+### ACT Policy — Best Checkpoint (step 40K, loss 0.1020)
 
 <p align="center">
-  <img src="docs/so101_references/videos/eval_10k_100steps.gif" width="45%" alt="ACT eval 10K checkpoint, 100 steps" />
-  <img src="docs/so101_references/videos/eval_test_10steps.gif" width="45%" alt="ACT eval quick test, 10 steps" />
+  <img src="outputs/eval_videos/test/act_v7_040000_mujoco_eval.gif" width="45%" alt="ACT v7 best checkpoint MuJoCo eval" />
+  <img src="outputs/eval_videos/test/eval_10k_100steps.gif" width="45%" alt="ACT 10K checkpoint eval" />
 </p>
 
-<p align="center"><em>Left: ACT checkpoint (10K steps) evaluated for 100 steps &nbsp;|&nbsp; Right: Quick 10-step eval</em></p>
+<p align="center"><em>Left: Best checkpoint (step 40K) &nbsp;|&nbsp; Right: Early checkpoint (step 10K)</em></p>
 
-### PushT Diffusion Policy
+### PushT Diffusion Policy Evaluation
 
 <p align="center">
-  <img src="docs/so101_references/videos/pusht_eval.gif" width="45%" alt="PushT diffusion policy evaluation" />
+  <img src="outputs/eval_videos/test/pusht_diffusion_eval.gif" width="30%" alt="PushT diffusion eval (new)" />
+  <img src="outputs/eval_videos/test/pusht_eval.gif" width="30%" alt="PushT diffusion eval (previous)" />
 </p>
+
+<p align="center"><em>Diffusion policy pushing T-block to target (5 episodes, reward: 46.2 / 30.4 / 0.0 / 0.6 / 0.0)</em></p>
 
 ### Community ACT Reference Demos
 
 <p align="center">
-  <img src="docs/so101_references/videos/act_so101_pick_pen.gif" width="45%" alt="ACT SO-101 pick pen" />
-  <img src="docs/so101_references/videos/act_so101_pick_rag.gif" width="45%" alt="ACT SO-101 pick rag" />
+  <img src="outputs/eval_videos/test/act_so101_pick_pen.gif" width="45%" alt="ACT SO-101 pick pen" />
+  <img src="outputs/eval_videos/test/act_so101_pick_rag.gif" width="45%" alt="ACT SO-101 pick rag" />
 </p>
 
 <p align="center"><em>Community ACT models for SO-101 (pick pen / pick rag tasks)</em></p>
-
-## Architecture
-
-```
-Hardware Layer          Simulation Layer          Training Layer          Documentation
-─────────────          ─────────────────          ──────────────          ─────────────
-STL/ STEP/             sim_viewer.py              Remote RTX 6000D:      docs/
-Optional/              render_test.py             ACT (84M) ★            no_hardware_deployment.md
-Simulation/SO101/      collect_sim_data.py ★      Diffusion (263M)       GPU_Train_Command_Reference.md
-URDF + MJCF            convert_to_lerobot_dataset  batch=128, workers=8  RTX_Server_Guide.md
-                       ─────────────────────       torchcodec + AMP       so101_references/
-                       MuJoCo offscreen render     ~1.9 step/s (ACT)      training_logs/
-                       → LeRobot native format     ~13 step/s (Diffusion)
-```
 
 ## Data Flow
 
@@ -73,19 +68,19 @@ MuJoCo scene.xml → collect_sim_data.py → LeRobotDataset → HF Hub → RTX 6
 | MuJoCo | 3.8.0 | Physics simulation + offscreen rendering |
 | LeRobot | 0.5.1 | Dataset management + training framework |
 | PyTorch | 2.x | Model training (CPU local / CUDA remote) |
-| ACT | 84M params | SO-101 推物 policy (chunk_size=100) |
-| Diffusion | 263M params | PushT 验证 policy |
-| torchcodec | latest | 视频解码 (比 pyav 快 8-20x) |
+| ACT | 84M params | SO-101 manipulation policy (chunk_size=100) |
+| Diffusion | 263M params | PushT benchmark policy |
+| torchcodec | latest | Video decoding (8-20x faster than pyav) |
 | RTX 6000D | 8x 85GB | Remote GPU training server |
 
 ## Policy Comparison
 
-| Policy | Params | Speed (RTX 6000D) | SO-101 HF Models | Status |
-|--------|--------|-------------------|-------------------|--------|
-| **ACT** | 84M | 1.9 step/s (torchcodec+AMP) | 30+ | Training (50K steps) |
-| **Diffusion** | 263M | 13 step/s (torchcodec) | — | Training (100K steps) |
+| Policy | Params | Speed (RTX 6000D) | Best Loss | Status |
+|--------|--------|-------------------|-----------|--------|
+| **ACT** | 84M | 1.9 step/s (torchcodec+AMP) | 0.1020 @step 40K | Training (→50K) |
+| **Diffusion** | 263M | 13 step/s (torchcodec) | — | Evaluated (pretrained) |
 
-> Speed benchmark & optimization details: [docs/so101_references/README.md](docs/so101_references/README.md)
+> Speed benchmark & optimization details: [docs/github_readme/README.md](docs/github_readme/README.md)
 
 ## Quick Start
 
@@ -95,16 +90,16 @@ python -m venv .venv && .venv/Scripts/activate
 pip install lerobot mujoco
 
 # 2. Collect simulation data
-python collect_sim_data.py
+python scripts/data/collect_sim_data.py
 
 # 3. Train on remote GPU (with optimal config)
-# See docs/so101_references/README.md for full benchmark & bug workarounds
+# See docs/guides/GPU_Train_Command_Reference.md for full benchmark & bug workarounds
 export CUDA_VISIBLE_DEVICES=6
 export LD_PRELOAD=~/miniconda3/envs/lerobot/lib/libstdc++.so.6
 export HF_ENDPOINT=https://hf-mirror.com
 ```
 
-Full walkthrough: [docs/no_hardware_deployment.md](docs/no_hardware_deployment.md)
+Full walkthrough: [docs/guides/no_hardware_deployment.md](docs/guides/no_hardware_deployment.md)
 
 ## Automated Pipeline (Orchestrator)
 
@@ -146,23 +141,26 @@ Full architecture docs: [docs/github_readme/orchestrator_architecture.md](docs/g
 
 ```
 FuRoC-SO-ARM101-LeRobot/
-├── collect_sim_data.py              # Core data collection (MuJoCo → LeRobot)
-├── render_test.py                   # Offscreen render verification
-├── convert_to_lerobot_dataset.py    # Format conversion
-├── sim_viewer.py                    # MuJoCo interactive viewer
-├── eval_pusht.py                    # PushT policy evaluation
-├── eval_rollout.py                  # ACT rollout evaluation
-├── run_collect.py                   # Data collection launcher
-├── run_pipeline_rtx.sh              # RTX training pipeline script
-├── orchestrator_arm101/             # Automated training orchestrator
-├── training_plans/                  # Training plan YAML configs
-├── Simulation/SO101/                # MuJoCo scene + URDF/MJCF
+├── scripts/
+│   ├── eval/                          # Evaluation scripts
+│   ├── data/                          # Data collection & conversion
+│   ├── sim/                           # MuJoCo viewer & render test
+│   └── monitoring/                    # Standalone loss monitor
+├── orchestrator_arm101/               # Automated training orchestrator
+├── training_plans/                    # YAML training configs
+├── outputs/
+│   ├── checkpoints/                   # Training checkpoints
+│   │   ├── act_v7_040000/             # ACT best (loss 0.1020)
+│   │   ├── so101_act/                 # ACT early test (step 10K)
+│   │   └── pusht_diffusion/           # PushT diffusion
+│   ├── eval_videos/                   # Evaluation videos + GIFs
+│   ├── datasets/                      # Local LeRobot datasets
+│   └── logs/                          # Training logs
 ├── docs/
-│   ├── github_readme/               # GitHub README assets
-│   │   └── orchestrator_architecture.md  # Orchestrator full docs
-│   ├── no_hardware_deployment.md    # 5-phase pipeline guide
-│   ├── architecture_overview.html   # Full architecture document
-│   ├── so101_references/            # HF model survey + demos
-│   └── training_logs/               # Session-by-session logs
+│   ├── training/                      # Training versions & session logs
+│   ├── deployment/                    # RTX server, cloud GPU, multi-GPU
+│   ├── guides/                        # Pipeline, sim2sim, command reference
+│   └── github_readme/                 # README assets (SVG, architecture doc)
+├── run_pipeline_rtx.sh                # RTX training pipeline script
 └── README.md
 ```

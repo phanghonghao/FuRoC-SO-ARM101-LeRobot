@@ -24,14 +24,15 @@ logger = logging.getLogger(__name__)
 
 # Regex patterns to match loss in lerobot-train log output
 LOSS_PATTERNS = [
-    re.compile(r"loss:\s+([\d.]+)", re.IGNORECASE),
+    re.compile(r"\bloss:([\d.]+)", re.IGNORECASE),        # "loss:0.115" (no space)
+    re.compile(r"loss:\s+([\d.]+)", re.IGNORECASE),        # "loss: 0.115" (with space)
     re.compile(r"train_loss[=:\s]+([\d.]+)", re.IGNORECASE),
     re.compile(r"'loss':\s*([\d.]+)", re.IGNORECASE),
 ]
 
 STEP_PATTERNS = [
+    re.compile(r"(\d+)/\d+\s", re.IGNORECASE),            # "1234/50000 " from tqdm
     re.compile(r"step[=:\s]+(\d+)", re.IGNORECASE),
-    re.compile(r"(\d+)/\d+\s", re.IGNORECASE),  # "1234/50000 "
 ]
 
 
