@@ -187,23 +187,31 @@ class DataCollector:
         return self._interpolate_waypoints(waypoints)
 
     def _generate_push_trajectory(self, rng, noise_std: float, range_scale: float) -> np.ndarray:
-        """Generate push trajectory: reach → push → retract."""
-        # Start from home
-        # Lower arm to table level
-        pre_push = HOME.copy()
-        pre_push[1] = -0.8  # lower shoulder
-        pre_push[2] = 1.2   # raise elbow
-        pre_push[5] = 1.0   # gripper closed
+        """Generate push trajectory: descend → contact → push → retract.
 
-        # Push position
-        push_target = pre_push.copy()
-        ranges = JOINT_RANGES * range_scale * 0.3  # smaller range for push
-        push_target[:3] += rng.uniform(-0.3, 0.3, 3)
+        SO-101 kinematic constraints (实测):
+          - 夹爪最低 Z=0.067m，无法到达桌面
+          - 需要 4cm 台面让 cube 在 Z=0.065m
+          - trajectory waypoints from joint-space sweep on RTX
+        """
+        # Waypoints (实测: [shoulder_lift, elbow_flex, wrist_flex])
+        home = HOME.copy()
+
+        # 下降到 cube 后方高处 (gripper ~(0.16, 0, 0.08))
+        descend = np.array([0.0, -0.65, 1.51, -0.16, 0.0, 1.0])
+
+        # 接触 cube (gripper ~(0.157, 0, 0.067) — 夹爪最低点)
+        contact = np.array([0.0, -0.15, 1.60, -0.86, 0.0, 1.0])
+
+        # 推过 cube (gripper ~(0.207, 0, 0.081) — 向前推 5cm)
+        push_target = np.array([0.0, -0.15, 1.10, -0.26, 0.0, 1.0])
+        # 加入随机偏移增加多样性
+        push_target[:4] += rng.uniform(-0.1, 0.1, 4) * range_scale
         if noise_std > 0:
             push_target += rng.normal(0, noise_std, 6)
-        push_target[5] = 1.0
+        push_target[5] = 1.0  # gripper closed
 
-        waypoints = [HOME.copy(), pre_push, push_target, pre_push, HOME.copy()]
+        waypoints = [home, descend, contact, push_target, contact, descend, home]
         return self._interpolate_waypoints(waypoints)
 
     def _interpolate_waypoints(self, waypoints: list) -> np.ndarray:

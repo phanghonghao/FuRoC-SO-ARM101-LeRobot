@@ -58,9 +58,13 @@ main()
 | v3 | cuda:6 | pyav | 256 | 12 | No | 25,000 | 3.3s/step | 23h | Crashed (GPU contention) |
 | v5 | cuda:6 | pyav | 128 | 8 | Yes | 50,000 | 2.25s/step | 31h | Killed (superseded by v6) |
 | v6 | cuda:4 | pyav | 256 | 12 | Yes | 25,000 | 3.3s/step | ~23h | Killed (superseded by v7) |
-| **v7** | **cuda:6** | **torchcodec** | **128** | **8** | **Yes** | **50,000** | **~0.53s/step** | **~7h** | **Running** |
+| **v7** | **cuda:6** | **torchcodec** | **128** | **8** | **Yes** | **50,000** | **~0.53s/step** | **~7h** | **Done, eval 0%** |
 
-**Current: v7** | **Best config: v7 (torchcodec, 6.3x faster than v6)**
+**Current: v7** | **Best config: v7 (torchcodec, 6.3x faster than v6)** | **Eval: 0% success — 训练数据无物体，需重训 v8**
+
+> **v7 eval 结果**：50K steps 训练完成，best checkpoint @ 40K (loss=0.1020)。但 eval rollout 成功率 0%。
+> **根因**：训练数据 `PhangHongHao/so101_push_sim` 采集时场景里没有方块，模型只学到了关节运动模式，不是物体交互。
+> **正确方案**：见 [`push_task_correct_approach.md`](../guides/push_task_correct_approach.md)。
 
 ---
 

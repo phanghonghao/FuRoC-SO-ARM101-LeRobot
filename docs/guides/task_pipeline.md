@@ -49,24 +49,36 @@ scene_v2.xml       collect_task.py    ACT (GPU A)        eval_rollout.py
 
 **建议从 T2（Push）开始**：不需要夹爪精细控制，视觉上有明确反馈。
 
+> **重要踩坑记录**：SO-101 夹爪最低只能到 Z=6.7cm，**推不到桌面上的物体**。必须加台面。详见 [`push_task_correct_approach.md`](./push_task_correct_approach.md)。
+
 #### 5.1.2 MuJoCo 场景修改
 
-当前 `scene.xml` 只有机械臂 + 地板。需要创建 `scene_v2.xml`：
+当前 `scene.xml` 只有机械臂 + 地板。需要创建带台面 + 物体的场景：
 
 ```xml
 <!-- 在 worldbody 中添加 -->
-<!-- 红色方块（被推物体） -->
-<geom name="red_block" type="box" size="0.02 0.02 0.02" pos="0.3 0 0.02"
-      rgba="1 0 0 1" mass="0.05" friction="1.0 0.5 0.5" />
+<!-- 台面（SO-101 够不到地面，必须加台面让 cube 在夹爪可达高度） -->
+<geom name="push_table" type="box" size="0.18 0.10 0.02"
+      pos="0.20 0.0 0.02" rgba="0.4 0.35 0.3 1"
+      contype="1" conaffinity="1"/>
 
-<!-- 目标区域（绿色圆圈标记） -->
-<geom name="target" type="cylinder" size="0.05 0.001" pos="0.2 0.2 0.001"
-      rgba="0 1 0 0.3" contype="0" conaffinity="0" />
+<!-- 红色方块（在台面上，中心 Z=0.065m，夹爪最低可达 Z=0.067m） -->
+<body name="push_object" pos="0.16 0.0 0.065">
+    <freejoint name="push_object_joint"/>
+    <geom name="push_object_geom" type="box" size="0.025 0.025 0.025"
+          rgba="0.9 0.15 0.15 1" mass="0.05" friction="0.8 0.8 0.8"/>
+</body>
 
-<!-- 桌面（可选，提高真实感） -->
-<geom name="table" type="box" size="0.5 0.5 0.4" pos="0.3 0 0.4"
-      rgba="0.6 0.4 0.2 1" />
+<!-- 目标区域（绿色圆圈） -->
+<geom name="target_zone" type="cylinder" size="0.05 0.001"
+      pos="0.32 0.0 0.041" rgba="0.1 0.8 0.2 0.35"
+      contype="0" conaffinity="0"/>
 ```
+
+**关键改动**（相比原文档）：
+- ~~直接放桌面~~ → **加 4cm 台面**（SO-101 最低 Z=6.7cm）
+- ~~方块 pos="0.3 0 0.02"~~ → **pos="0.16 0.0 0.065"**（夹爪可达范围）
+- 方块用 `freejoint`（可被推动），不是 `geom`（固定不动）
 
 #### 5.1.3 成功判定函数
 
@@ -93,8 +105,11 @@ Simulation/SO101/
 使用脚本生成"脚本化演示"（非人类遥操作）：
 
 1. **逆运动学求解** — 计算末端到达目标附近的关节角
-2. **轨迹插值** — 从 Home → 方块上方 → 推动位置 → 推到目标
-3. **随机化** — 方块初始位置、目标位置在范围内随机
+2. **轨迹插值** — 从 Home → 绕到方块后方 → 下降到方块高度 → 向前推 → 回 Home
+3. **随机化** — 方块初始位置在台面范围内随机
+4. **关键**：场景必须包含物体，轨迹必须从物体后方接近
+
+> **踩坑警告**：关节空间线性插值在笛卡尔空间是弧线。如果夹爪从 HOME (X=0.22) 直接下降到 cube (X=0.16)，会从右侧撞击 cube 导致反向推动。必须先移到 cube 后方 (X < cube位置) 再下降。详见 [`push_task_correct_approach.md`](./push_task_correct_approach.md) 坑 3。
 
 ```python
 # collect_task.py 核心逻辑

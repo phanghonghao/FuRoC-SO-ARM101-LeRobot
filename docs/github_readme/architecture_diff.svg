@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 300" font-family="'Segoe UI',system-ui,sans-serif">
+  <defs>
+    <filter id="sh"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity=".1"/></filter>
+    <linearGradient id="gd" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#8b5cf6"/><stop offset="100%" stop-color="#7c3aed"/></linearGradient>
+    <linearGradient id="ga" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f59e0b"/><stop offset="100%" stop-color="#d97706"/></linearGradient>
+  </defs>
+
+  <rect width="700" height="300" rx="12" fill="#f8fafc"/>
+  <text x="350" y="30" text-anchor="middle" font-size="15" font-weight="700" fill="#1e293b">Architecture Comparison: Diffusion vs ACT</text>
+
+  <!-- Diffusion card -->
+  <rect x="30" y="55" width="300" height="220" rx="12" fill="url(#gd)" filter="url(#sh)"/>
+  <text x="180" y="85" text-anchor="middle" font-size="14" font-weight="700" fill="#fff">PushT Diffusion</text>
+  <line x1="50" y1="95" x2="310" y2="95" stroke="#ffffff30" stroke-width="1"/>
+
+  <text x="50" y="120" font-size="12" fill="#ede9fe" font-weight="600">UNet 263M params</text>
+  <text x="50" y="142" font-size="11" fill="#c4b5fd">Conditional denoising</text>
+  <text x="50" y="162" font-size="11" fill="#c4b5fd">chunk_size = 1</text>
+
+  <line x1="50" y1="175" x2="310" y2="175" stroke="#ffffff20" stroke-width="1"/>
+  <text x="50" y="198" font-size="11" fill="#ddd6fe">→ Lightweight compute / step</text>
+
+  <!-- Speed badge -->
+  <rect x="50" y="215" width="260" height="40" rx="8" fill="#7c3aed" opacity=".6"/>
+  <text x="180" y="234" text-anchor="middle" font-size="11" fill="#ede9fe">Speed</text>
+  <text x="180" y="250" text-anchor="middle" font-size="14" font-weight="700" fill="#fff">~13 step/s</text>
+
+  <!-- VS badge -->
+  <circle cx="350" cy="165" r="22" fill="#1e293b" filter="url(#sh)"/>
+  <text x="350" y="170" text-anchor="middle" font-size="13" font-weight="700" fill="#fff">VS</text>
+
+  <!-- ACT card -->
+  <rect x="370" y="55" width="300" height="220" rx="12" fill="url(#ga)" filter="url(#sh)"/>
+  <text x="520" y="85" text-anchor="middle" font-size="14" font-weight="700" fill="#fff">SO-101 ACT</text>
+  <line x1="390" y1="95" x2="650" y2="95" stroke="#ffffff30" stroke-width="1"/>
+
+  <text x="390" y="120" font-size="12" fill="#fef3c7" font-weight="600">Transformer Encoder 4L</text>
+  <text x="390" y="140" font-size="12" fill="#fef3c7" font-weight="600">+ CVAE Decoder 7L</text>
+  <text x="390" y="162" font-size="11" fill="#fde68a">chunk_size = 100  (O(n²))</text>
+
+  <line x1="390" y1="175" x2="650" y2="175" stroke="#ffffff20" stroke-width="1"/>
+  <text x="390" y="198" font-size="11" fill="#fde68a">→ Heavy compute / step</text>
+  <text x="390" y="215" font-size="11" fill="#fde68a">→ batch_size cap at 128</text>
+
+  <!-- Speed badge -->
+  <rect x="390" y="230" width="260" height="30" rx="8" fill="#d97706" opacity=".6"/>
+  <text x="520" y="250" text-anchor="middle" font-size="14" font-weight="700" fill="#fff">~1.9 step/s</text>
+
+  <!-- Bottom note -->
+  <text x="350" y="293" text-anchor="middle" font-size="10" fill="#94a3b8">Root cause: ACT chunk_size=100 Transformer self-attention O(n²) → 79GB VRAM per step at batch=128</text>
+</svg>

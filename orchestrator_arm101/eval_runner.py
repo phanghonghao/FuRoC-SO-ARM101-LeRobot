@@ -2,6 +2,10 @@
 
 Loads a trained policy via ACTPolicy/DiffusionPolicy.from_pretrained(),
 runs N episodes in MuJoCo, and computes success rate + saves video.
+
+Supports two eval modes:
+- default: joint-space distance from home (legacy)
+- push:    track pushable object distance to target zone
 """
 
 from __future__ import annotations
@@ -16,6 +20,10 @@ import numpy as np
 import torch
 
 logger = logging.getLogger(__name__)
+
+# Default push task config (cube at gripper height Z=0.12m)
+PUSH_OBJECT_START = np.array([0.19, 0.0, 0.12])
+TARGET_POS = np.array([0.35, 0.0, 0.096])
 
 
 class EvalRunner:
@@ -32,6 +40,11 @@ class EvalRunner:
         self.select_best_by = config.get("select_best_by", "success_rate")
         self.image_height = config.get("image_height", 480)
         self.image_width = config.get("image_width", 640)
+
+        # Push eval config
+        self.push_mode = config.get("push_mode", False)
+        self.push_object_start = np.array(config.get("push_object_start", list(PUSH_OBJECT_START)))
+        self.target_pos = np.array(config.get("target_pos", list(TARGET_POS)))
 
     def evaluate_checkpoint(self, checkpoint_path: str, scene_xml: str) -> dict:
         """Evaluate a single checkpoint. Returns metrics dict."""
@@ -50,12 +63,20 @@ class EvalRunner:
         data = mujoco.MjData(model)
         renderer = mujoco.Renderer(model, height=self.image_height, width=self.image_width)
 
+        # Detect push object body id
+        push_body_id = None
+        if self.push_mode:
+            push_body_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "push_object")
+            if push_body_id < 0:
+                logger.warning("push_mode=True but 'push_object' body not found in scene, falling back to joint metric")
+                push_body_id = None
+
         # Run episodes
         results = []
         all_video_frames = []
 
         for ep in range(self.n_episodes):
-            ep_result, frames = self._run_episode(policy, model, data, renderer, seed=ep)
+            ep_result, frames = self._run_episode(policy, model, data, renderer, push_body_id, seed=ep)
             results.append(ep_result)
             if self.save_video and frames:
                 all_video_frames.append((ep, frames))
@@ -78,8 +99,14 @@ class EvalRunner:
             "avg_distance": float(avg_distance),
             "avg_steps": float(avg_steps),
             "n_episodes": self.n_episodes,
+            "eval_mode": "push" if self.push_mode else "joint_distance",
             "video_paths": video_paths,
         }
+        if self.push_mode:
+            metrics["target_pos"] = self.target_pos.tolist()
+            metrics["push_object_start"] = self.push_object_start.tolist()
+            metrics["min_distance_to_target"] = float(min(r.get("min_distance", r["final_distance"]) for r in results))
+
         logger.info("Checkpoint %s: success_rate=%.2f, avg_distance=%.4f",
                      Path(checkpoint_path).name, success_rate, avg_distance)
         return metrics
@@ -121,13 +148,24 @@ class EvalRunner:
         logger.error("Could not load policy from %s", checkpoint_path)
         return None
 
-    def _run_episode(self, policy, model, data, renderer, seed: int = 0) -> tuple[dict, list]:
+    def _run_episode(self, policy, model, data, renderer, push_body_id=None, seed: int = 0) -> tuple[dict, list]:
         """Run a single evaluation episode."""
         rng = np.random.default_rng(seed)
         mujoco.mj_resetData(model, data)
+
+        # Reset push object to start position
+        if push_body_id is not None:
+            qpos_adr = model.jnt_qposadr[model.body_jntadr[push_body_id]]
+            data.qpos[qpos_adr:qpos_adr + 3] = self.push_object_start  # position
+            data.qpos[qpos_adr + 3:qpos_adr + 7] = [1, 0, 0, 0]  # quaternion (identity)
+            qvel_adr = model.jnt_dofadr[model.body_jntadr[push_body_id]]
+            data.qvel[qvel_adr:qvel_adr + 6] = 0  # zero velocity
+
+        mujoco.mj_forward(model, data)
         policy.reset()
 
         frames = []
+        min_distance = float("inf")
         final_distance = float("inf")
         steps = 0
 
@@ -136,7 +174,7 @@ class EvalRunner:
             renderer.update_scene(data)
             image = renderer.render()
 
-            if self.save_video and step % 3 == 0:  # Save every 3rd frame to reduce size
+            if self.save_video and step % 3 == 0:
                 frames.append(image.copy())
 
             # Prepare observation
@@ -163,12 +201,23 @@ class EvalRunner:
 
             steps += 1
 
-            # Simple success check: distance from home position
-            current = data.qpos[:6].copy()
-            final_distance = float(np.linalg.norm(current))
+            # Compute distance metric
+            if push_body_id is not None:
+                # Push mode: distance from object center to target
+                obj_pos = data.xpos[push_body_id].copy()
+                dist = float(np.linalg.norm(obj_pos[:2] - self.target_pos[:2]))  # XY only
+                min_distance = min(min_distance, dist)
+                final_distance = dist
+            else:
+                # Legacy: distance from joint home position
+                current = data.qpos[:6].copy()
+                final_distance = float(np.linalg.norm(current))
 
         success = final_distance < self.success_threshold
-        return {"success": success, "final_distance": final_distance, "steps": steps}, frames
+        result = {"success": success, "final_distance": final_distance, "steps": steps}
+        if push_body_id is not None:
+            result["min_distance"] = min_distance
+        return result, frames
 
     def _save_videos(self, episode_frames: list, checkpoint_path: str) -> list[str]:
         """Save evaluation videos."""

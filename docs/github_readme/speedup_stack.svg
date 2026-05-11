@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 620 340" font-family="'Segoe UI',system-ui,sans-serif">
+  <defs>
+    <filter id="sh"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity=".1"/></filter>
+    <marker id="ad" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,1 L10,5 L0,9z" fill="#64748b"/></marker>
+  </defs>
+
+  <rect width="620" height="340" rx="12" fill="#f8fafc"/>
+  <text x="310" y="28" text-anchor="middle" font-size="15" font-weight="700" fill="#1e293b">SO-101 ACT Speedup Stack</text>
+  <text x="310" y="46" text-anchor="middle" font-size="11" fill="#94a3b8">84M params · batch=128 · 50K steps</text>
+
+  <!-- Step 1: baseline -->
+  <rect x="40" y="65" width="320" height="50" rx="8" fill="#fff" stroke="#cbd5e1" stroke-width="1.5" filter="url(#sh)"/>
+  <rect x="40" y="65" width="8" height="50" rx="4 0 0 4" fill="#94a3b8"/>
+  <text x="62" y="86" font-size="12" font-weight="600" fill="#475569">pyav + 4 workers</text>
+  <text x="62" y="104" font-size="11" fill="#94a3b8">baseline</text>
+  <text x="340" y="95" text-anchor="end" font-size="16" font-weight="700" fill="#64748b">0.22 step/s</text>
+  <text x="370" y="90" font-size="9" fill="#94a3b8">63h</text>
+
+  <!-- Arrow 1→2 -->
+  <line x1="200" y1="115" x2="200" y2="128" stroke="#64748b" stroke-width="1.5" marker-end="url(#ad)"/>
+  <text x="210" y="125" font-size="9" fill="#3b82f6" font-weight="600">+4 workers</text>
+
+  <!-- Step 2 -->
+  <rect x="40" y="130" width="320" height="50" rx="8" fill="#fff" stroke="#cbd5e1" stroke-width="1.5" filter="url(#sh)"/>
+  <rect x="40" y="130" width="8" height="50" rx="4 0 0 4" fill="#64748b"/>
+  <text x="62" y="151" font-size="12" font-weight="600" fill="#475569">pyav + 8 workers</text>
+  <text x="62" y="169" font-size="11" fill="#94a3b8">1.7x faster</text>
+  <text x="340" y="160" text-anchor="end" font-size="16" font-weight="700" fill="#475569">0.38 step/s</text>
+  <text x="370" y="155" font-size="9" fill="#94a3b8">36h</text>
+
+  <!-- Arrow 2→3 -->
+  <line x1="200" y1="180" x2="200" y2="193" stroke="#64748b" stroke-width="1.5" marker-end="url(#ad)"/>
+  <text x="210" y="190" font-size="9" fill="#3b82f6" font-weight="600">+use_amp=True</text>
+
+  <!-- Step 3 -->
+  <rect x="40" y="195" width="320" height="50" rx="8" fill="#fff" stroke="#cbd5e1" stroke-width="1.5" filter="url(#sh)"/>
+  <rect x="40" y="195" width="8" height="50" rx="4 0 0 4" fill="#f59e0b"/>
+  <text x="62" y="216" font-size="12" font-weight="600" fill="#475569">pyav + 8w + AMP</text>
+  <text x="62" y="234" font-size="11" fill="#94a3b8">2.0x faster</text>
+  <text x="340" y="225" text-anchor="end" font-size="16" font-weight="700" fill="#475569">0.45 step/s</text>
+  <text x="370" y="220" font-size="9" fill="#94a3b8">31h</text>
+
+  <!-- Arrow 3→4 -->
+  <line x1="200" y1="245" x2="200" y2="258" stroke="#64748b" stroke-width="1.5" marker-end="url(#ad)"/>
+  <text x="210" y="255" font-size="9" fill="#10b981" font-weight="700">+torchcodec</text>
+
+  <!-- Step 4: optimal -->
+  <rect x="40" y="260" width="320" height="50" rx="8" fill="#fff" stroke="#10b981" stroke-width="2" filter="url(#sh)"/>
+  <rect x="40" y="260" width="8" height="50" rx="4 0 0 4" fill="#10b981"/>
+  <text x="62" y="281" font-size="12" font-weight="700" fill="#065f46">torchcodec + 8w + AMP</text>
+  <text x="62" y="299" font-size="11" fill="#10b981" font-weight="600">8.6x faster — optimal</text>
+  <text x="340" y="290" text-anchor="end" font-size="18" font-weight="700" fill="#059669">1.9 step/s</text>
+  <text x="370" y="285" font-size="9" fill="#10b981" font-weight="600">7.3h</text>
+
+  <!-- Right side: speedup bar chart -->
+  <text x="520" y="80" text-anchor="middle" font-size="11" font-weight="600" fill="#475569">Relative Speedup</text>
+
+  <!-- Bar 1 -->
+  <rect x="430" y="92" width="20" height="40" rx="3" fill="#cbd5e1"/>
+  <text x="440" y="143" text-anchor="middle" font-size="9" fill="#94a3b8">1x</text>
+
+  <!-- Bar 2 -->
+  <rect x="460" y="80" width="20" height="52" rx="3" fill="#94a3b8"/>
+  <text x="470" y="143" text-anchor="middle" font-size="9" fill="#64748b">1.7x</text>
+
+  <!-- Bar 3 -->
+  <rect x="490" y="74" width="20" height="58" rx="3" fill="#f59e0b"/>
+  <text x="500" y="143" text-anchor="middle" font-size="9" fill="#d97706">2x</text>
+
+  <!-- Bar 4 -->
+  <rect x="520" y="20" width="30" height="112" rx="3" fill="#10b981"/>
+  <text x="535" y="143" text-anchor="middle" font-size="10" fill="#059669" font-weight="700">8.6x</text>
+
+  <!-- Bottom note -->
+  <text x="310" y="330" text-anchor="middle" font-size="10" fill="#94a3b8">Bottleneck: Video decoding — pyav CPU per-frame decode vs torchcodec GPU hardware acceleration</text>
+</svg>

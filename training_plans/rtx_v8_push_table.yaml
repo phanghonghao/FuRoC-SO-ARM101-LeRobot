@@ -1,0 +1,99 @@
+# SO-101 Push v8 — 带台面 + cube 的完整 Pipeline
+# 修复 v7 问题: 场景无物体、轨迹够不到桌面
+# Usage: python -m orchestrator_arm101.arm101_orchestrator --plan training_plans/rtx_v8_push_table.yaml --fresh
+
+plan_name: so101_push_v8_table
+device: cuda:6
+
+defaults:
+  dataset:
+    video_backend: torchcodec
+    fps: 30
+    image_height: 480
+    image_width: 640
+
+  training:
+    batch_size: 128
+    lr: 1e-4
+    weight_decay: 1e-4
+    num_workers: 8
+    log_freq: 100
+    save_every: 5000
+    eval_every: 5000
+
+  monitor:
+    poll_interval: 60
+    plateau_window: 10
+    plateau_threshold: 0.01
+    loss_increase_threshold: 0.20
+    min_steps: 1000
+
+phases:
+  # ── Phase 1: 数据采集 (带 cube 的场景) ────────────────── #
+  - id: collect
+    name: "Collect Push Demos (v8: table+cube)"
+    type: collection
+    enabled: true
+    collection:
+      trajectory_type: ik_push
+      n_episodes: 300
+      n_steps: 100
+      n_waypoints: 3
+      scene_xml: Simulation/SO101/scene_push_table.xml   # 带台面+cube!
+      randomize: true
+      randomization:
+        joint_noise_std: 0.02
+        target_range_scale: 0.8
+      push_to_hub: false
+      repo_id: PhangHongHao/so101_push_v8_table
+      output_dir: outputs/so101_push_v8_table
+
+  # ── Phase 2: ACT 训练 ────────────────────────────────── #
+  - id: train_act
+    name: "Train ACT v8 (with cube data)"
+    type: training
+    depends_on: [collect]
+    enabled: true
+    policy:
+      type: act
+      chunk_size: 100
+      n_obs_steps: 1
+      dim_model: 512
+      n_heads: 8
+      n_encoder_layers: 4
+      n_decoder_layers: 7
+      dropout: 0.1
+      kl_weight: 10
+      use_vae: true
+      use_amp: true
+    training:
+      batch_size: 128
+      lr: 1e-4
+      weight_decay: 1e-4
+      max_steps: 50000
+      num_workers: 8
+      log_freq: 100
+      save_every: 5000
+      warmup_steps: 500
+      lr_scheduler: cosine
+    dataset:
+      repo_id: PhangHongHao/so101_push_v8_table
+      root: outputs/so101_push_v8_table
+    monitor:
+      plateau_window: 15
+      loss_increase_threshold: 0.15
+
+  # ── Phase 3: Eval (push mode) ────────────────────────── #
+  - id: eval_act
+    name: "Evaluate ACT v8 (push eval)"
+    type: evaluation
+    depends_on: [train_act]
+    enabled: true
+    eval:
+      n_episodes: 50
+      max_steps: 300
+      push_mode: true
+      select_best_by: success_rate
+      success_threshold: 0.05
+      save_video: true
+      video_dir: outputs/eval_videos/v8

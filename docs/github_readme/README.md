@@ -20,17 +20,7 @@ HuggingFace SO-101 模型调研 + 本项目训练框架效率对比。
 
 ### Architecture Difference
 
-```
-PushT Diffusion                   SO-101 ACT
-┌─────────────────────┐          ┌─────────────────────────┐
-│  UNet 263M          │          │  Transformer Encoder 4L  │
-│  条件去噪            │          │  + CVAE Decoder 7L       │
-│  chunk_size=1       │          │  chunk_size=100 (O(n²))  │
-│  → 轻量计算/step     │          │  → 重计算/step           │
-│                     │          │  → batch_size 上限 128   │
-│  Speed: ~13 step/s  │          │  Speed: ~1.9 step/s     │
-└─────────────────────┘          └─────────────────────────┘
-```
+![Architecture Comparison](architecture_diff.svg)
 
 **ACT 慢的根本原因：** `chunk_size=100` 的 Transformer decoder 自注意力复杂度 O(n^2)，128 batch 时单 step 显存占用 ~79GB（RTX 6000D 单卡上限），无法进一步增大 batch。
 
@@ -57,16 +47,7 @@ PushT Diffusion                   SO-101 ACT
 
 ### Speedup Stack
 
-```
-                          Speed
-  pyav + 4workers          0.22 step/s   ← baseline
-       ↓ +4 workers
-  pyav + 8workers          0.38 step/s   (1.7x)
-       ↓ +use_amp=True
-  pyav + 8workers + AMP    0.45 step/s   (2.0x)
-       ↓ +torchcodec
-  torchcodec + 8w + AMP    1.9  step/s   (8.6x)  ← optimal
-```
+![Speedup Stack](speedup_stack.svg)
 
 **瓶颈分析：** GPU 利用率始终 100%，但 `data_s`（数据加载时间）在 pyav 下远高于 torchcodec。视频解码是真正的瓶颈 — pyav 用 CPU 逐帧解码，torchcodec 用 GPU 硬件加速。
 
@@ -128,15 +109,7 @@ main()
 
 ### Why batch_size=128 is the Maximum
 
-```
-ACT attention memory ≈ batch_size × chunk_size² × hidden_dim
-                     ≈ 128 × 100² × 512
-                     ≈ 79 GB (RTX 6000D 单卡上限)
-
-batch=256 → OOM (>79GB)
-batch=512 → 18.75 GiB per alloc attempt, total >79GB → OOM
-batch=128 → stable at ~79GB usage
-```
+![Memory Calculation](memory_calc.svg)
 
 ---
 
