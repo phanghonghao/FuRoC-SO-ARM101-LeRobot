@@ -37,7 +37,7 @@ class TrainingLauncher:
         training_cfg: Optional[dict] = None,
         run_name: Optional[str] = None,
         output_dir: Optional[str] = None,
-        video_backend: str = "pyav",
+        video_backend: str = "torchcodec",
     ) -> subprocess.Popen:
         """Launch training as a subprocess using sys.argv manipulation."""
         policy_cfg = policy_cfg or {}
@@ -77,6 +77,34 @@ class TrainingLauncher:
 
         env = os.environ.copy()
         env["PYTHONUNBUFFERED"] = "1"
+
+        # torchcodec fix: LD_PRELOAD conda libstdc++ for CXXABI_1.3.15
+        conda_prefix = os.environ.get("CONDA_PREFIX", "")
+        if conda_prefix:
+            libstdcxx = os.path.join(conda_prefix, "lib", "libstdc++.so.6")
+            if os.path.exists(libstdcxx):
+                env["LD_PRELOAD"] = libstdcxx
+                logger.info("LD_PRELOAD set to %s (torchcodec fix)", libstdcxx)
+
+        # Use CUDA_VISIBLE_DEVICES with --policy.device=cuda to avoid
+        # LeRobot v0.5.1 is_amp_available("cuda:N") bug
+        if device and device.startswith("cuda:"):
+            gpu_id = device.split(":")[1]
+            env["CUDA_VISIBLE_DEVICES"] = gpu_id
+            # Override device in argv to plain "cuda"
+            for i, a in enumerate(argv):
+                if a.startswith("--policy.device="):
+                    argv[i] = "--policy.device=cuda"
+            # Rebuild inline script with updated argv
+            argv_str = ",\n    ".join(f"'{a}'" for a in argv)
+            inline_script = (
+                f"import sys\n"
+                f"sys.argv = [{argv_str}]\n"
+                f"from lerobot.scripts.lerobot_train import main\n"
+                f"main()"
+            )
+            cmd = [sys.executable, "-u", "-c", inline_script]
+            logger.info("CUDA_VISIBLE_DEVICES=%s, --policy.device=cuda", gpu_id)
 
         self._proc = subprocess.Popen(
             cmd,
@@ -140,20 +168,22 @@ class TrainingLauncher:
             "batch_size": "batch_size",
             "max_steps": "steps",
             "eval_every": "eval_freq",
+            "save_every": "save_freq",
             "num_workers": "num_workers",
+            "log_freq": "log_freq",
             "seed": "seed",
         }
         for plan_key, cli_key in top_level_keys.items():
             if plan_key in training_cfg:
                 argv.append(f"--{cli_key}={training_cfg[plan_key]}")
 
-        # Defaults
+        # Defaults (only if not already set above)
         if "batch_size" not in training_cfg:
             argv.append("--batch_size=128")
         if "max_steps" not in training_cfg:
             argv.append("--steps=50000")
-
-        argv.append("--num_workers=4")
+        if "num_workers" not in training_cfg:
+            argv.append("--num_workers=8")
 
         return argv
 

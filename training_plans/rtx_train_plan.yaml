@@ -9,7 +9,7 @@ defaults:
   dataset:
     repo_id: PhangHongHao/so101_push_sim
     root: /tmp/so101_push_sim_lerobot
-    video_backend: pyav
+    video_backend: torchcodec
     fps: 30
     image_height: 480
     image_width: 640
@@ -18,6 +18,8 @@ defaults:
     batch_size: 128
     lr: 1e-4
     weight_decay: 1e-4
+    num_workers: 8
+    log_freq: 100
     save_every: 5000
     eval_every: 5000
 
@@ -44,11 +46,14 @@ phases:
       dropout: 0.1
       kl_weight: 10
       use_vae: true
+      use_amp: true
     training:
       batch_size: 128
       lr: 1e-4
       weight_decay: 1e-4
       max_steps: 50000
+      num_workers: 8
+      log_freq: 100
       save_every: 5000
       warmup_steps: 500
       lr_scheduler: cosine

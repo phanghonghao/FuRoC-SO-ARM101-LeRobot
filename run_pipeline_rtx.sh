@@ -57,6 +57,10 @@ echo "[$(date)] ==========================================="
 # Phase 2: Run the orchestrator starting from train_act
 export MUJOCO_GL=egl
 export HF_ENDPOINT=https://hf-mirror.com
+# torchcodec fix: LD_PRELOAD conda libstdc++ for CXXABI_1.3.15
+export LD_PRELOAD=~/miniconda3/envs/lerobot/lib/libstdc++.so.6
+# LeRobot v0.5.1 bug workaround: use CUDA_VISIBLE_DEVICES + plain cuda
+export CUDA_VISIBLE_DEVICES=6
 
 python -u -c "
 import sys, os

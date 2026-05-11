@@ -15,9 +15,9 @@ No-hardware simulation learning pipeline for SO-101 robot arm: MuJoCo simulation
 |:-----:|:------:|:------------|
 | 0 | Done | Environment setup (local venv + RTX 6000D + HF Hub) |
 | 1 | Done | PushT simulation training (CPU, validation) |
-| 2 | Done | SO-101 MuJoCo data collection (10 eps, 800 frames) |
-| 3 | Done | ACT training on RTX 6000D (52M params, 10K steps, checkpoint saved) |
-| 4 | Done | SmolVLA exploration (450M, model loaded, not mainstream for SO-101) |
+| 2 | Done | SO-101 MuJoCo data collection (300 eps, 30K frames) |
+| 3 | **Active** | **ACT training on RTX 6000D (84M params, 50K steps, torchcodec + AMP)** |
+| 4 | **Active** | **PushT Diffusion on RTX 6000D (263M params, 100K steps, torchcodec)** |
 
 ## Results
 
@@ -50,13 +50,13 @@ No-hardware simulation learning pipeline for SO-101 robot arm: MuJoCo simulation
 ```
 Hardware Layer          Simulation Layer          Training Layer          Documentation
 ─────────────          ─────────────────          ──────────────          ─────────────
-STL/ STEP/             sim_viewer.py              Local CPU:              docs/
-Optional/              render_test.py             PushT (validation)      no_hardware_deployment.md
-Simulation/SO101/      collect_sim_data.py ★      SmolVLA (loading)       GPU_Train_Command_Reference.md
-URDF + MJCF            convert_to_lerobot_dataset  Remote RTX 6000D:      RTX_Server_Guide.md
-                       ─────────────────────       ACT (52M) ★            Sim2Sim_Guide.md
-                       MuJoCo offscreen render     SmolVLA (450M)         training_logs/
-                       → LeRobot native format     batch=64, workers=4    so101_references/
+STL/ STEP/             sim_viewer.py              Remote RTX 6000D:      docs/
+Optional/              render_test.py             ACT (84M) ★            no_hardware_deployment.md
+Simulation/SO101/      collect_sim_data.py ★      Diffusion (263M)       GPU_Train_Command_Reference.md
+URDF + MJCF            convert_to_lerobot_dataset  batch=128, workers=8  RTX_Server_Guide.md
+                       ─────────────────────       torchcodec + AMP       so101_references/
+                       MuJoCo offscreen render     ~1.9 step/s (ACT)      training_logs/
+                       → LeRobot native format     ~13 step/s (Diffusion)
 ```
 
 ## Data Flow
@@ -73,17 +73,19 @@ MuJoCo scene.xml → collect_sim_data.py → LeRobotDataset → HF Hub → RTX 6
 | MuJoCo | 3.8.0 | Physics simulation + offscreen rendering |
 | LeRobot | 0.5.1 | Dataset management + training framework |
 | PyTorch | 2.x | Model training (CPU local / CUDA remote) |
-| ACT | 52M params | Mainstream SO-101 policy (30+ models on HF) |
-| SmolVLA | 450M (99.9M trainable) | Vision-Language-Action exploration |
+| ACT | 84M params | SO-101 推物 policy (chunk_size=100) |
+| Diffusion | 263M params | PushT 验证 policy |
+| torchcodec | latest | 视频解码 (比 pyav 快 8-20x) |
 | RTX 6000D | 8x 85GB | Remote GPU training server |
 
 ## Policy Comparison
 
-| Policy | Params | SO-101 HF Models | Status |
-|--------|--------|-------------------|--------|
-| **ACT** | 52M | 30+ | Done (Phase 3) |
-| Diffusion Policy | ~30M | — | Validated (Phase 1) |
-| SmolVLA | 450M | 4-5 | Explored (Phase 4) |
+| Policy | Params | Speed (RTX 6000D) | SO-101 HF Models | Status |
+|--------|--------|-------------------|-------------------|--------|
+| **ACT** | 84M | 1.9 step/s (torchcodec+AMP) | 30+ | Training (50K steps) |
+| **Diffusion** | 263M | 13 step/s (torchcodec) | — | Training (100K steps) |
+
+> Speed benchmark & optimization details: [docs/so101_references/README.md](docs/so101_references/README.md)
 
 ## Quick Start
 
@@ -95,9 +97,11 @@ pip install lerobot mujoco
 # 2. Collect simulation data
 python collect_sim_data.py
 
-# 3. Train on remote GPU
-ssh phh@192.168.120.155  # RTX 6000D
-lerobot-train --dataset.repo_id=<your_dataset> --policy.type=act --policy.device=cuda:0
+# 3. Train on remote GPU (with optimal config)
+# See docs/so101_references/README.md for full benchmark & bug workarounds
+export CUDA_VISIBLE_DEVICES=6
+export LD_PRELOAD=~/miniconda3/envs/lerobot/lib/libstdc++.so.6
+export HF_ENDPOINT=https://hf-mirror.com
 ```
 
 Full walkthrough: [docs/no_hardware_deployment.md](docs/no_hardware_deployment.md)
