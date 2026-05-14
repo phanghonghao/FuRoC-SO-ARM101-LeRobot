@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ACT & Diffusion Policy 技术讲解</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --card: #1a1d2e;
+    --card-alt: #1e2235;
+    --border: #2a2f45;
+    --text: #e0e0e8;
+    --text-dim: #8888a0;
+    --accent-act: #4fc3f7;
+    --accent-act-dark: #1565c0;
+    --accent-diff: #ab47bc;
+    --accent-diff-dark: #6a1b9a;
+    --accent-green: #66bb6a;
+    --accent-orange: #ffa726;
+    --accent-red: #ef5350;
+    --code-bg: #12131f;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    padding: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 2.2rem; text-align: center; margin-bottom: 0.5rem; }
+  h1 .act { color: var(--accent-act); }
+  h1 .diff { color: var(--accent-diff); }
+  .subtitle { text-align: center; color: var(--text-dim); margin-bottom: 2.5rem; font-size: 1.05rem; }
+  h2 {
+    font-size: 1.5rem;
+    margin: 2.5rem 0 1rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 2px solid var(--border);
+  }
+  h2 .tag {
+    display: inline-block;
+    font-size: 0.75rem;
+    padding: 2px 10px;
+    border-radius: 12px;
+    vertical-align: middle;
+    margin-left: 8px;
+    font-weight: 500;
+  }
+  h2 .tag-act { background: var(--accent-act-dark); color: #fff; }
+  h2 .tag-diff { background: var(--accent-diff-dark); color: #fff; }
+  h3 { font-size: 1.15rem; margin: 1.5rem 0 0.6rem; color: #c0c0d8; }
+  p { margin: 0.6rem 0; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin: 1rem 0;
+  }
+  .card-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.2rem;
+    margin: 1rem 0;
+  }
+  @media (max-width: 800px) { .card-grid { grid-template-columns: 1fr; } }
+  .card-act { border-left: 4px solid var(--accent-act); }
+  .card-diff { border-left: 4px solid var(--accent-diff); }
+  .card-neutral { border-left: 4px solid var(--text-dim); }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0.8rem 0;
+    font-size: 0.92rem;
+  }
+  th, td {
+    padding: 8px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  th { color: var(--text-dim); font-weight: 600; font-size: 0.85rem; text-transform: uppercase; }
+  code {
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'Consolas', 'Fira Code', monospace;
+    font-size: 0.88em;
+    color: #c8c8e0;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+    overflow-x: auto;
+    margin: 0.8rem 0;
+    font-size: 0.85rem;
+    line-height: 1.5;
+  }
+  pre code { background: none; padding: 0; }
+
+  /* Architecture diagrams */
+  .arch-diagram {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.2rem;
+    font-family: 'Consolas', monospace;
+    font-size: 0.82rem;
+    line-height: 1.4;
+    overflow-x: auto;
+    white-space: pre;
+    color: #b0b0d0;
+    margin: 0.8rem 0;
+  }
+  .arch-diagram .highlight-act { color: var(--accent-act); font-weight: bold; }
+  .arch-diagram .highlight-diff { color: var(--accent-diff); font-weight: bold; }
+  .arch-diagram .highlight-green { color: var(--accent-green); }
+  .arch-diagram .highlight-orange { color: var(--accent-orange); }
+  .arch-diagram .comment { color: #5a5a7a; }
+
+  .badge {
+    display: inline-block;
+    font-size: 0.75rem;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 600;
+  }
+  .badge-act { background: #0d47a1; color: #90caf9; }
+  .badge-diff { background: #4a148c; color: #ce93d8; }
+  .badge-both { background: #1b5e20; color: #a5d6a7; }
+  .badge-speed { background: #e65100; color: #ffcc80; }
+
+  .formula {
+    background: #161830;
+    border: 1px solid #2a2f55;
+    border-radius: 8px;
+    padding: 0.8rem 1.2rem;
+    margin: 0.6rem 0;
+    font-family: 'Cambria Math', 'Times New Roman', serif;
+    font-size: 1.05rem;
+    text-align: center;
+    color: #d0d0f0;
+  }
+
+  .toc {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.2rem 2rem;
+    margin: 1.5rem 0;
+  }
+  .toc h3 { margin: 0 0 0.6rem; font-size: 1rem; color: var(--text-dim); }
+  .toc ol { padding-left: 1.5rem; }
+  .toc li { margin: 0.3rem 0; }
+  .toc a { color: var(--accent-act); text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+
+  .flow-steps {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin: 0.8rem 0;
+  }
+  .flow-step {
+    background: var(--card-alt);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 14px;
+    font-size: 0.85rem;
+    white-space: nowrap;
+  }
+  .flow-arrow { color: var(--text-dim); font-size: 1.2rem; }
+
+  .comparison-table td:first-child { font-weight: 600; color: #c0c0d8; }
+
+  .tip-box {
+    background: #1a2735;
+    border-left: 4px solid var(--accent-orange);
+    border-radius: 0 8px 8px 0;
+    padding: 0.8rem 1.2rem;
+    margin: 1rem 0;
+    font-size: 0.92rem;
+  }
+  .tip-box strong { color: var(--accent-orange); }
+</style>
+</head>
+<body>
+
+<h1><span class="act">ACT</span> & <span class="diff">Diffusion Policy</span> 技术讲解</h1>
+<p class="subtitle">SO-ARM101 LeRobot 项目中的两种机器人策略 — 架构、原理与项目实践</p>
+
+<div class="toc">
+  <h3>目录</h3>
+  <ol>
+    <li><a href="#overview">概览：为什么需要策略网络？</a></li>
+    <li><a href="#act">ACT — Action Chunking with Transformers</a></li>
+    <li><a href="#diffusion">Diffusion Policy — 去噪扩散策略</a></li>
+    <li><a href="#compare">核心对比</a></li>
+    <li><a href="#project">项目中的实际应用</a></li>
+    <li><a href="#pipeline">训练 Pipeline 详解</a></li>
+    <li><a href="#lessons">踩坑与经验</a></li>
+  </ol>
+</div>
+
+<!-- ==================== 1. Overview ==================== -->
+<h2 id="overview">1. 概览：为什么需要策略网络？</h2>
+
+<div class="card card-neutral">
+  <p>在机器人模仿学习 (Imitation Learning) 中，<strong>策略网络 (Policy)</strong> 的任务是：</p>
+  <div class="formula">
+    <strong>观测</strong> (图像 + 关节状态) &nbsp;&rarr;&nbsp; <strong>策略网络</strong> &nbsp;&rarr;&nbsp; <strong>动作</strong> (关节目标角)
+  </div>
+  <p>本项目中使用了两种策略网络：</p>
+  <ul style="margin: 0.5rem 0 0 1.2rem;">
+    <li><span class="badge badge-act">ACT</span> <strong>Action Chunking Transformer</strong> — 用于 SO-101 机械臂的推物任务</li>
+    <li><span class="badge badge-diff">Diffusion</span> <strong>Diffusion Policy</strong> — 用于 PushT 基准任务验证</li>
+  </ul>
+</div>
+
+<!-- ==================== 2. ACT ==================== -->
+<h2 id="act">2. ACT — Action Chunking with Transformers <span class="tag tag-act">SO-101</span></h2>
+
+<h3>2.1 核心思想</h3>
+<div class="card card-act">
+  <p><strong>Action Chunking</strong>（动作分块）：不是每步只预测一个动作，而是一次性预测 <code>chunk_size=100</code> 步的未来动作序列，形成一个<strong>动作轨迹块</strong>。</p>
+  <p>这样做的好处：</p>
+  <ul style="margin: 0.3rem 0 0 1.2rem;">
+    <li>减少高频决策误差的累积</li>
+    <li>天然编码了时序连贯性（动作之间平滑过渡）</li>
+    <li>推理效率高：每 <code>n_action_steps=100</code> 步才调用一次模型</li>
+  </ul>
+</div>
+
+<h3>2.2 整体架构</h3>
+<div class="arch-diagram">
+┌──────────────────────────────────────────────────────────────────────────┐
+│                          <span class="highlight-act">ACT Architecture</span> (Inference)                           │
+│                                                                          │
+│   <span class="comment">Observation Input</span>                                                       │
+│   ┌──────────────┐    ┌──────────────┐                                   │
+│   │  Image (B,3, │    │  State (B,6) │                                   │
+│   │  480, 640)   │    │  (qpos)      │                                   │
+│   └──────┬───────┘    └──────┬───────┘                                   │
+│          │                   │                                           │
+│          ▼                   │                                           │
+│   ┌──────────────┐          │                                           │
+│   │ <span class="highlight-green">ResNet18</span>     │          │                                           │
+│   │ (ImageNet    │          │                                           │
+│   │  Pretrained) │          │                                           │
+│   │ + 1×1 Conv   │          │                                           │
+│   └──────┬───────┘          │                                           │
+│          │ (H×W tokens)     │ (1 token)                                 │
+│          ▼                  ▼                                           │
+│   ┌────────────────────────────────────────┐                             │
+│   │        <span class="highlight-act">Transformer Encoder</span> (4 layers)         │                             │
+│   │   + Sinusoidal 2D Position Embedding   │                             │
+│   │   Tokens: [latent | state | img_feat]  │                             │
+│   └──────────────────┬─────────────────────┘                             │
+│                      │                                                   │
+│                      ▼                                                   │
+│   ┌────────────────────────────────────────┐                             │
+│   │        <span class="highlight-act">Transformer Decoder</span> (1 layer)          │                             │
+│   │   + Learnable Position Embedding       │                             │
+│   │   Queries: 100 learnable tokens        │                             │
+│   └──────────────────┬─────────────────────┘                             │
+│                      │                                                   │
+│                      ▼                                                   │
+│   ┌──────────────┐                                                       │
+│   │ Action Head  │  →  (B, 100, 6)  <span class="comment"># 100步动作序列，6个关节角</span>        │
+│   │ (Linear)     │                                                       │
+│   └──────────────┘                                                       │
+└──────────────────────────────────────────────────────────────────────────┘
+</div>
+
+<h3>2.3 VAE 训练机制（关键创新）</h3>
+<div class="card card-act">
+  <p>ACT 在训练时引入了 <strong>VAE (Variational Autoencoder)</strong> 来处理人类演示中的<strong>多模态性</strong>——同一个目标可以通过不同路径达成。</p>
+
+  <div class="arch-diagram">
+  <span class="comment">Training 时额外的 VAE Encoder 分支：</span>
+
+  ┌────────────────────────────────────────────────────────────────┐
+  │                    <span class="highlight-orange">VAE Encoder</span> (Training Only)                   │
+  │                                                                │
+  │  [CLS token] + [robot_state] + [action_sequence (100 steps)]  │
+  │       │                                                        │
+  │       ▼                                                        │
+  │  <span class="highlight-orange">Transformer Encoder</span> (4 layers)                            │
+  │       │                                                        │
+  │       ▼                                                        │
+  │  μ (mean) + σ (log variance)  → <span class="highlight-green">z = μ + σ·ε</span>  (reparameterization) │
+  │                                                                │
+  │  <span class="comment">z 注入 Transformer Encoder 的第一个 token</span>                       │
+  │  <span class="comment">Inference 时 z = 0（不需要 VAE encoder）</span>                        │
+  └────────────────────────────────────────────────────────────────┘
+  </div>
+
+  <p><strong>训练损失：</strong></p>
+  <div class="formula">
+    Loss = L1(actions, actionŝ) + <strong>kl_weight × D<sub>KL</sub></strong>(q(z|x) ‖ N(0,1))
+  </div>
+  <p>其中 <code>kl_weight = 10</code>，L1 loss 对动作序列做重建，KL loss 正则化潜在空间。</p>
+</div>
+
+<h3>2.4 VAE 推理采样修复（重要）</h3>
+<div class="card card-act" style="border-left: 4px solid var(--accent-orange);">
+  <p><strong>问题发现 (2026-05-13)：</strong>LeRobot v0.5.1 中 ACT 推理时 VAE latent z 被设为<strong>全零向量</strong>，而非从先验分布 N(0,1) 采样。导致每个 episode 输出的动作序列完全相同，失去多样性。</p>
+
+  <div style="background: var(--code-bg); border: 1px solid var(--border); border-radius: 10px; padding: 1.2rem; margin: 0.8rem 0;">
+    <p style="color: var(--text-dim); font-size: 0.82rem; margin-bottom: 0.8rem;">VAE Latent z 在不同阶段的行为：</p>
+
+    <div style="display: flex; flex-direction: column; gap: 0.8rem;">
+      <div style="display: flex; align-items: center; gap: 0.8rem; background: #0a1a0a; border-radius: 8px; padding: 0.7rem 1rem; border-left: 3px solid var(--accent-green);">
+        <span style="color: var(--accent-green); font-weight: bold; white-space: nowrap; min-width: 160px;">训练时</span>
+        <code style="color: #b0d0b0;">z = μ + σ · ε</code>
+        <span style="color: var(--accent-green); font-size: 0.85rem;">重参数化采样，每次不同</span>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 0.8rem; background: #1a1408; border-radius: 8px; padding: 0.7rem 1rem; border-left: 3px solid var(--accent-orange);">
+        <span style="color: var(--accent-orange); font-weight: bold; white-space: nowrap; min-width: 160px;">推理时 (原版)</span>
+        <code style="color: #d0b080;">z = [0, 0, 0, ..., 0]</code>
+        <span style="color: var(--accent-red); font-size: 0.85rem;">全零！每次相同</span>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 0.8rem; background: #0a1a0a; border-radius: 8px; padding: 0.7rem 1rem; border-left: 3px solid var(--accent-green);">
+        <span style="color: var(--accent-green); font-weight: bold; white-space: nowrap; min-width: 160px;">推理时 (修复后)</span>
+        <code style="color: #b0d0b0;">z = randn(32) ~ N(0,1)</code>
+        <span style="color: var(--accent-green); font-size: 0.85rem;">从先验采样，每次不同</span>
+      </div>
+    </div>
+  </div>
+
+  <p><strong>修复：</strong>将 <code>modeling_act.py:454</code> 的 <code>torch.zeros</code> 改为 <code>torch.randn</code>。</p>
+
+  <h3 style="margin-top: 1rem;">修复前后 eval 对比 (v9_r2, step 20K)</h3>
+  <table>
+    <tr><th>指标</th><th>修复前 (zeros)</th><th>修复后 (randn)</th></tr>
+    <tr><td>唯一轨迹数</td><td>2 (ep1 + ep2-5 重复)</td><td style="color: var(--accent-green);">5 (全部不同)</td></tr>
+    <tr><td>Avg min dist</td><td>0.0794m</td><td style="color: var(--accent-green);">0.0420m</td></tr>
+    <tr><td>推到 &lt;5mm 次数</td><td>1/5</td><td style="color: var(--accent-green);">3/5</td></tr>
+    <tr><td>Ep1 vs Ep2 action diff</td><td>0.000000</td><td style="color: var(--accent-green);">0.088534</td></tr>
+  </table>
+
+  <p style="margin-top: 0.8rem; color: var(--text-dim); font-size: 0.88rem;">
+    <strong>关键结论：</strong>VAE latent z 是一个 32 维随机向量，决定了"怎么推"（推的轨迹、速度、风格）。就像人推东西——每次手法不完全一样，但都能把东西推到目标位置。此修复仅影响本地推理代码，不影响 RTX 上的训练过程（训练路径走的是第 449 行重参数化采样，未被修改）。
+  </p>
+</div>
+
+<h3>2.5 Action Queue 推理机制</h3>
+<div class="card card-act">
+  <p>推理时的 <strong>Action Queue</strong> 机制：</p>
+  <div class="arch-diagram">
+  <span class="comment">Inference Flow:</span>
+
+  Step 1: <span class="highlight-act">predict 100 actions</span> → queue: [a1, a2, ..., a100]
+  Step 2: execute a1 → queue: [a2, a3, ..., a100]
+  Step 3: execute a2 → queue: [a3, ..., a100]
+  ...
+  Step 100: execute a100 → queue empty
+  Step 101: <span class="highlight-act">predict 100 new actions</span> → queue: [a1', a2', ..., a100']
+  </div>
+  <p>每次 <code>select_action()</code> 从队列头部取一个动作，队列空了才重新推理。这使得模型推理频率为环境步频的 1/100。</p>
+</div>
+
+<h3>2.5 项目 ACT 配置</h3>
+<table>
+  <tr><th>参数</th><th>值</th><th>说明</th></tr>
+  <tr><td><code>chunk_size</code></td><td>100</td><td>一次预测 100 步动作</td></tr>
+  <tr><td><code>n_obs_steps</code></td><td>1</td><td>只用当前帧观测</td></tr>
+  <tr><td><code>dim_model</code></td><td>512</td><td>Transformer 隐藏维度</td></tr>
+  <tr><td><code>n_heads</code></td><td>8</td><td>多头注意力头数</td></tr>
+  <tr><td><code>dim_feedforward</code></td><td>3200</td><td>FFN 中间层维度</td></tr>
+  <tr><td><code>n_encoder_layers</code></td><td>4</td><td>Transformer Encoder 层数</td></tr>
+  <tr><td><code>n_decoder_layers</code></td><td>1</td><td>Transformer Decoder 层数</td></tr>
+  <tr><td><code>n_vae_encoder_layers</code></td><td>4</td><td>VAE Encoder 层数</td></tr>
+  <tr><td><code>latent_dim</code></td><td>32</td><td>VAE 潜在空间维度</td></tr>
+  <tr><td><code>kl_weight</code></td><td>10.0</td><td>KL 散度损失权重</td></tr>
+  <tr><td><code>dropout</code></td><td>0.1</td><td>Dropout 率</td></tr>
+  <tr><td><code>vision_backbone</code></td><td>ResNet18</td><td>ImageNet 预训练视觉骨干</td></tr>
+  <tr><td><strong>总参数量</strong></td><td><strong>~84M</strong></td><td></td></tr>
+</table>
+
+<h3>2.6 为什么 chunk_size=100 会导致 O(n²) 显存？</h3>
+<div class="tip-box">
+  <strong>关键细节：</strong> ACT 的 Transformer Decoder 中，queries 数量 = <code>chunk_size</code>。Self-Attention 的计算量和显存占用是 O(n²)（n = sequence length）。当 chunk_size=100 时 decoder 的 attention 矩阵为 100×100，是可接受的。但如果增大到 500，就是 500×500，显存急剧上升。这也是为什么 batch_size=128 已经是 RTX 6000D 85GB 的上限。
+</div>
+
+<!-- ==================== 3. Diffusion ==================== -->
+<h2 id="diffusion">3. Diffusion Policy — 去噪扩散策略 <span class="tag tag-diff">PushT</span></h2>
+
+<h3>3.1 核心思想</h3>
+<div class="card card-diff">
+  <p><strong>Diffusion Policy</strong> 将动作预测建模为一个<strong>去噪过程</strong>：</p>
+  <ul style="margin: 0.3rem 0 0 1.2rem;">
+    <li>训练时：对真实动作序列逐步加噪，学习如何还原</li>
+    <li>推理时：从纯噪声开始，通过 100 步迭代去噪，生成动作序列</li>
+  </ul>
+  <p>与 ACT 的一次性预测不同，Diffusion 通过多步迭代精炼动作，天然适合多模态分布。</p>
+</div>
+
+<h3>3.2 整体架构</h3>
+<div class="arch-diagram">
+┌────────────────────────────────────────────────────────────────────────┐
+│                     <span class="highlight-diff">Diffusion Policy Architecture</span>                       │
+│                                                                        │
+│  <span class="comment">Observation Input</span>                                                     │
+│  ┌──────────────┐    ┌──────────────┐                                  │
+│  │  Image (B,3, │    │  State (B,2) │                                  │
+│  │  480, 640)   │    │  (agent pos) │                                  │
+│  └──────┬───────┘    └──────┬───────┘                                  │
+│         │                   │                                          │
+│         ▼                   │                                          │
+│  ┌──────────────┐          │                                          │
+│  │ <span class="highlight-green">ResNet18</span>     │          │  <span class="comment">(GroupNorm, not BatchNorm)</span>              │
+│  │ + Spatial    │          │                                          │
+│  │   Softmax    │          │                                          │
+│  │ (32 keypoints│          │                                          │
+│  │  → feature)  │          │                                          │
+│  └──────┬───────┘          │                                          │
+│         │                  │                                          │
+│         └────────┬─────────┘                                          │
+│                  │ concat → <span class="highlight-diff">global_condition</span>                       │
+│                  ▼                                                     │
+│  ┌──────────────────────────────────────────────┐                      │
+│  │         <span class="highlight-diff">Conditional U-Net 1D</span>                    │                      │
+│  │                                              │                      │
+│  │  Input: noisy_action (B, horizon=16, dim)    │                      │
+│  │  Condition: timestep + global_condition      │                      │
+│  │  via <span class="highlight-orange">FiLM</span> modulation                         │                      │
+│  │                                              │                      │
+│  │  ┌────────┐  ┌────────┐  ┌────────┐         │                      │
+│  │  │ Down   │→ │ Down   │→ │ Down   │         │                      │
+│  │  │ 512    │  │ 1024   │  │ 2048   │         │                      │
+│  │  └───┬────┘  └───┬────┘  └───┬────┘         │                      │
+│  │      │           │           │               │                      │
+│  │  ┌───┴────┐  ┌───┴────┐  ┌───┴────┐         │                      │
+│  │  │ Up     │← │ Up     │← │ Up     │         │                      │
+│  │  │ 2048   │  │ 1024   │  │ 512    │         │                      │
+│  │  └────────┘  └────────┘  └────────┘         │                      │
+│  │                                              │                      │
+│  │  Output: predicted noise ε (B, 16, action_dim)│                     │
+│  └──────────────────────────────────────────────┘                      │
+│                  │                                                     │
+│                  ▼                                                     │
+│         <span class="highlight-diff">DDPM Scheduler</span> → denoise 100 steps → clean action          │
+│                  │                                                     │
+│                  ▼                                                     │
+│         Action (B, <span class="highlight-diff">n_action_steps=8</span>, action_dim)                    │
+└────────────────────────────────────────────────────────────────────────┘
+</div>
+
+<h3>3.3 扩散过程详解</h3>
+
+<div class="card card-diff">
+  <h3 style="color: var(--accent-diff);">前向扩散（训练时加噪）</h3>
+  <div class="formula">
+    x<sub>t</sub> = √(ᾱ<sub>t</sub>) · x<sub>0</sub> + √(1 - ᾱ<sub>t</sub>) · ε &nbsp;&nbsp;其中 ε ~ N(0, I)
+  </div>
+  <p>逐步往真实动作 x<sub>0</sub> 中添加高斯噪声，经过 <code>num_train_timesteps=100</code> 步后变成纯噪声。</p>
+
+  <h3 style="color: var(--accent-diff); margin-top: 1rem;">反向去噪（训练目标）</h3>
+  <div class="formula">
+    Loss = ||ε - ε<sub>θ</sub>(x<sub>t</sub>, t, obs)||²
+  </div>
+  <p>U-Net 学习预测被添加的噪声 ε。知道噪声就能还原原始信号。</p>
+
+  <h3 style="color: var(--accent-diff); margin-top: 1rem;">推理去噪（生成动作）</h3>
+  <div class="arch-diagram">
+  <span class="comment">Inference: iterative denoising (100 steps)</span>
+
+  x<sub>100</sub> ~ N(0, I)  <span class="comment">← 纯噪声</span>
+      │
+      ▼  U-Net + DDPM step
+  x<sub>99</sub>  →  x<sub>98</sub>  →  ...  →  x<sub>1</sub>  →  x<sub>0</sub> = <span class="highlight-diff">clean action sequence</span>
+                                                  (B, horizon=16, action_dim)
+  </div>
+  <p>从纯噪声开始，经过 100 步迭代去噪，每步都用 U-Net 预测噪声并用 DDPM 调度器更新。最终得到干净的动作序列。</p>
+</div>
+
+<h3>3.4 FiLM 条件注入</h3>
+<div class="card card-diff">
+  <p>U-Net 如何感知观测信息？通过 <strong>FiLM (Feature-wise Linear Modulation)</strong>：</p>
+  <div class="formula">
+    FiLM(x) = γ(c) ⊙ x + β(c) &nbsp;&nbsp;其中 c = [image_features, robot_state]
+  </div>
+  <p>将观测编码为条件向量，生成逐通道的缩放因子 γ 和偏移 β，注入 U-Net 的每一层卷积。这使得去噪过程<strong>条件化于当前观测</strong>。</p>
+</div>
+
+<h3>3.5 项目 Diffusion 配置</h3>
+<table>
+  <tr><th>参数</th><th>值</th><th>说明</th></tr>
+  <tr><td><code>n_obs_steps</code></td><td>2</td><td>用最近 2 帧观测</td></tr>
+  <tr><td><code>horizon</code></td><td>16</td><td>预测 16 步动作序列</td></tr>
+  <tr><td><code>n_action_steps</code></td><td>8</td><td>每次执行 8 步</td></tr>
+  <tr><td><code>num_train_timesteps</code></td><td>100</td><td>前向扩散步数</td></tr>
+  <tr><td><code>down_dims</code></td><td>(512, 1024, 2048)</td><td>U-Net 下采样维度</td></tr>
+  <tr><td><code>kernel_size</code></td><td>5</td><td>U-Net 卷积核大小</td></tr>
+  <tr><td><code>noise_scheduler_type</code></td><td>DDPM</td><td>噪声调度器类型</td></tr>
+  <tr><td><code>beta_schedule</code></td><td>squaredcos_cap_v2</td><td>β 调度策略</td></tr>
+  <tr><td><code>prediction_type</code></td><td>epsilon</td><td>预测噪声而非样本</td></tr>
+  <tr><td><code>vision_backbone</code></td><td>ResNet18</td><td>GroupNorm 替代 BatchNorm</td></tr>
+  <tr><td><code>spatial_softmax_keypoints</code></td><td>32</td><td>Spatial Softmax 关键点数</td></tr>
+  <tr><td><strong>总参数量</strong></td><td><strong>~263M</strong></td><td></td></tr>
+</table>
+
+<!-- ==================== 4. Comparison ==================== -->
+<h2 id="compare">4. 核心对比</h2>
+
+<table class="comparison-table">
+  <tr><th>维度</th><th style="color: var(--accent-act);">ACT</th><th style="color: var(--accent-diff);">Diffusion Policy</th></tr>
+  <tr><td>核心范式</td><td>Transformer 序列预测</td><td>去噪扩散生成模型</td></tr>
+  <tr><td>预测方式</td><td>一次前向传播预测整个 chunk</td><td>100 步迭代去噪生成</td></tr>
+  <tr><td>推理速度</td><td><span class="badge badge-speed">快</span> 单次前向传播</td><td>慢（100 次 U-Net 前向传播）</td></tr>
+  <tr><td>参数量</td><td>84M</td><td>263M</td></tr>
+  <tr><td>预测长度</td><td>100 步</td><td>16 步（执行 8 步）</td></tr>
+  <tr><td>观测步数</td><td>1 帧</td><td>2 帧</td></tr>
+  <tr><td>多模态处理</td><td>VAE 潜在空间</td><td>扩散采样随机性</td></tr>
+  <tr><td>视觉骨干</td><td>ResNet18 + FrozenBatchNorm</td><td>ResNet18 + GroupNorm + SpatialSoftmax</td></tr>
+  <tr><td>条件注入</td><td>Token concat（Encoder 输入）</td><td>FiLM modulation（每层注入）</td></tr>
+  <tr><td>归一化</td><td>MEAN_STD（图像/状态/动作）</td><td>MIN_MAX（状态/动作），MEAN_STD（图像）</td></tr>
+  <tr><td>损失函数</td><td>L1 + KL divergence</td><td>MSE (噪声预测)</td></tr>
+  <tr><td>训练难度</td><td>显存瓶颈（chunk O(n²)）</td><td>数据解码瓶颈（轻量 GPU 计算）</td></tr>
+  <tr><td>适用场景</td><td>精细操作、长轨迹</td><td>多模态分布、接触丰富任务</td></tr>
+</table>
+
+<div class="card-grid">
+  <div class="card card-act">
+    <h3 style="color: var(--accent-act); font-size: 1rem;">ACT 优势</h3>
+    <ul style="margin-left: 1.2rem; font-size: 0.9rem;">
+      <li>推理速度快（单次前向传播）</li>
+      <li>长序列预测（100步）减少推理频率</li>
+      <li>在 ALOHA 双臂任务上验证有效</li>
+      <li>VAE 处理多模态演示</li>
+    </ul>
+  </div>
+  <div class="card card-diff">
+    <h3 style="color: var(--accent-diff); font-size: 1rem;">Diffusion 优势</h3>
+    <ul style="margin-left: 1.2rem; font-size: 0.9rem;">
+      <li>更强的多模态分布建模</li>
+      <li>训练更稳定（MSE 目标简单）</li>
+      <li>不依赖 VAE 潜在空间假设</li>
+      <li>对接触丰富任务表现更好</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ==================== 5. Project Application ==================== -->
+<h2 id="project">5. 项目中的实际应用</h2>
+
+<div class="card-grid">
+  <div class="card card-act">
+    <h3 style="color: var(--accent-act);">ACT — SO-101 推物任务</h3>
+    <table>
+      <tr><td><strong>任务</strong></td><td>机械臂推方块到目标位置</td></tr>
+      <tr><td><strong>输入</strong></td><td>图像 (3, 480, 640) + 关节角 (6,)</td></tr>
+      <tr><td><strong>输出</strong></td><td>关节目标角 (6,) × 100步</td></tr>
+      <tr><td><strong>数据集</strong></td><td>so101_push_sim (30K帧, 300 episodes)</td></tr>
+      <tr><td><strong>场景</strong></td><td>MuJoCo scene_push_table.xml</td></tr>
+      <tr><td><strong>GPU</strong></td><td>RTX 6000D cuda:6</td></tr>
+      <tr><td><strong>训练版本</strong></td><td>v8（当前最新）</td></tr>
+    </table>
+    <div class="arch-diagram" style="font-size: 0.78rem;">
+    <span class="comment">SO-101 Push Scene (scene_push_table.xml):</span>
+
+                     SO-101 ARM
+                         |
+     ┌───────────────────┤
+     │  table 0.36×0.20m │
+     │  top at Z=0.04m   │
+     │      ┌───┐    ○   │
+     │      │cube│ target │
+     │      └───┘        │
+     │   (0.16,0) (0.32,0)│
+     └────────────────────┘
+    </div>
+  </div>
+  <div class="card card-diff">
+    <h3 style="color: var(--accent-diff);">Diffusion — PushT 基准</h3>
+    <table>
+      <tr><td><strong>任务</strong></td><td>2D 推 T 形块到目标位置</td></tr>
+      <tr><td><strong>输入</strong></td><td>图像 (3, 480, 640) + agent位置 (2,)</td></tr>
+      <tr><td><strong>输出</strong></td><td>agent位移 (2,) × 16步</td></tr>
+      <tr><td><strong>数据集</strong></td><td>lerobot/pusht (26K帧, 206 episodes)</td></tr>
+      <tr><td><strong>场景</strong></td><td>gym-pusht 2D 环境</td></tr>
+      <tr><td><strong>GPU</strong></td><td>RTX 6000D cuda:7</td></tr>
+      <tr><td><strong>训练版本</strong></td><td>v2（torchcodec 加速）</td></tr>
+    </table>
+  </div>
+</div>
+
+<!-- ==================== 6. Training Pipeline ==================== -->
+<h2 id="pipeline">6. 训练 Pipeline 详解</h2>
+
+<h3>6.1 数据流</h3>
+<div class="card">
+  <div class="flow-steps">
+    <div class="flow-step">MuJoCo 仿真</div>
+    <span class="flow-arrow">&rarr;</span>
+    <div class="flow-step">脚本化轨迹<br>(ik_push)</div>
+    <span class="flow-arrow">&rarr;</span>
+    <div class="flow-step">LeRobot Dataset<br>(SVT-AV1 视频)</div>
+    <span class="flow-arrow">&rarr;</span>
+    <div class="flow-step">torchcodec 解码</div>
+    <span class="flow-arrow">&rarr;</span>
+    <div class="flow-step">策略训练</div>
+    <span class="flow-arrow">&rarr;</span>
+    <div class="flow-step">MuJoCo 评估</div>
+  </div>
+</div>
+
+<h3>6.2 torchcodec 加速效果</h3>
+<div class="tip-box">
+  <strong>Game Changer：</strong>torchcodec 使用 GPU 加速视频解码，彻底消除了 CPU 解码瓶颈。
+</div>
+
+<table>
+  <tr><th>指标</th><th>ACT (pyav)</th><th>ACT (torchcodec)</th><th>Diffusion (pyav)</th><th>Diffusion (torchcodec)</th></tr>
+  <tr><td>数据加载</td><td>2.16s (65%)</td><td style="color: var(--accent-green);">0.037s (6.5%)</td><td>1.098s (95%)</td><td style="color: var(--accent-green);">~0.01s (1%)</td></tr>
+  <tr><td>GPU 计算</td><td>1.16s (35%)</td><td>0.527s (93.5%)</td><td>0.063s (5%)</td><td>0.069s (99%)</td></tr>
+  <tr><td>每步总时间</td><td>3.3s</td><td style="color: var(--accent-green);"><strong>0.53s</strong></td><td>~1.7s</td><td style="color: var(--accent-green);"><strong>~0.077s</strong></td></tr>
+  <tr><td>加速比</td><td colspan="2" style="text-align: center;">6.3x</td><td colspan="2" style="text-align: center;">21.7x</td></tr>
+</table>
+
+<h3>6.3 最佳训练配置</h3>
+<pre><code># 必须设置的环境变量
+CUDA_VISIBLE_DEVICES=6                          # GPU 隔离
+LD_PRELOAD=~/miniconda3/envs/lerobot/lib/libstdc++.so.6  # libstdc++ 兼容
+HF_ENDPOINT=https://hf-mirror.com               # HuggingFace 镜像
+
+# 训练命令（ACT 示例）
+python -u -c "
+import sys
+sys.argv = ['lerobot-train',
+    '--dataset.repo_id=PhangHongHao/so101_push_sim',
+    '--dataset.video_backend=torchcodec',     # 必须！
+    '--policy.type=act',
+    '--policy.device=cuda',                   # 不要写 cuda:6！
+    '--policy.use_amp=True',
+    '--batch_size=128',
+    '--steps=50000',
+    '--save_freq=5000',
+    '--log_freq=100',
+    '--num_workers=8',
+]
+from lerobot.scripts.lerobot_train import main
+main()
+"</code></pre>
+
+<!-- ==================== 7. Lessons ==================== -->
+<h2 id="lessons">7. 踩坑与经验</h2>
+
+<div class="card" style="border-left: 4px solid var(--accent-red);">
+  <h3 style="color: var(--accent-red);">v7 评估 0% 成功率的根因</h3>
+  <p><strong>问题：</strong>ACT v7 训练 50K 步 loss 降到 0.1，但 MuJoCo eval 成功率 0%。</p>
+  <p><strong>根因：</strong>数据集 <code>PhangHongHao/so101_push_sim</code> 采集时场景里<strong>没有方块</strong>！模型只学到了关节运动模式，完全没学到物体交互。</p>
+  <p><strong>修复：</strong>v8 使用 <code>scene_push_table.xml</code>，场景包含台面 + cube + target，重新采集数据训练。</p>
+</div>
+
+<div class="card-grid">
+  <div class="card card-neutral">
+    <h3 style="font-size: 1rem;">GPU 隔离</h3>
+    <p><span style="color: var(--accent-red);">&cross;</span> <code>--policy.device=cuda:6</code> 数据仍加载到 GPU 0</p>
+    <p><span style="color: var(--accent-green);">&check;</span> <code>CUDA_VISIBLE_DEVICES=6 --policy.device=cuda</code></p>
+  </div>
+  <div class="card card-neutral">
+    <h3 style="font-size: 1rem;">AMP 语法</h3>
+    <p><span style="color: var(--accent-red);">&cross;</span> <code>--use_amp=true</code>（顶层参数被拒绝）</p>
+    <p><span style="color: var(--accent-green);">&check;</span> <code>--policy.use_amp=True</code>（policy-level draccus）</p>
+  </div>
+  <div class="card card-neutral">
+    <h3 style="font-size: 1rem;">Batch Size 限制</h3>
+    <p>ACT: chunk_size=100 → decoder attention O(n²)</p>
+    <p>batch_size=128 已经是 85GB 的上限</p>
+    <p>batch_size=512 直接 OOM (79GB+)</p>
+  </div>
+  <div class="card card-neutral">
+    <h3 style="font-size: 1rem;">AMP 在 RTX 6000D 上无效</h3>
+    <p>Ada 架构 FP32 已经很快</p>
+    <p>v3 (无AMP): 3.32s/step</p>
+    <p>v6 (有AMP): 3.31s/step</p>
+    <p>几乎无差别</p>
+  </div>
+</div>
+
+<div class="card" style="margin-top: 1.5rem; text-align: center; border-top: 2px solid var(--border); padding-top: 1.5rem;">
+  <p style="color: var(--text-dim); font-size: 0.9rem;">
+    <span class="badge badge-act">ACT</span> 论文: <em>Learning Fine-Grained Bimanual Manipulation with Low-Cost Hardware</em> (RSS 2023)<br>
+    <span class="badge badge-diff">Diffusion</span> 论文: <em>Diffusion Policy: Visuomotor Policy Learning via Action Diffusion</em> (RSS 2023)<br>
+    框架: LeRobot v0.5.1 | 硬件: RTX PRO 6000 (85.7GB × 8)
+  </p>
+</div>
+
+</body>
+</html>

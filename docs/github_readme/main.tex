@@ -1,0 +1,296 @@
+\documentclass[aspectratio=169, 10pt, xcolor=dvipsnames]{beamer}
+\usepackage[UTF8]{ctex}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{xcolor}
+\usepackage{array}
+\usepackage{fontawesome5}
+\usepackage{hyperref}
+\usepackage{adjustbox}
+\usepackage{colortbl}
+
+% ── Tsinghua Colors ──
+\definecolor{thupurple}{RGB}{102,45,145}
+\definecolor{thugold}{RGB}{166,130,46}
+\definecolor{lgray}{RGB}{245,245,248}
+\definecolor{accent}{RGB}{102,45,145}
+\definecolor{codebg}{RGB}{245,245,248}
+\definecolor{darktext}{RGB}{40,40,40}
+
+% ── Beamer theme ──
+\usetheme{default}
+\usecolortheme{default}
+\setbeamercolor{structure}{fg=thupurple}
+\setbeamercolor{frametitle}{bg=thupurple,fg=white}
+\setbeamercolor{title}{fg=thupurple}
+\setbeamercolor{subtitle}{fg=thupurple!70}
+\setbeamercolor{author}{fg=darktext}
+\setbeamercolor{block title}{bg=thupurple,fg=white}
+\setbeamercolor{block body}{bg=lgray}
+\setbeamercolor{block title alerted}{bg=red!70!black,fg=white}
+\setbeamercolor{block body alerted}{bg=red!5}
+\setbeamercolor{block title example}{bg=thugold!90!black,fg=white}
+\setbeamercolor{block body example}{bg=thugold!5}
+\setbeamercolor{item}{fg=thupurple}
+\setbeamercolor{footline}{fg=gray}
+\setbeamercolor{background canvas}{bg=white}
+
+\setbeamerfont{frametitle}{size=\large,series=\bfseries}
+\setbeamerfont{title}{size=\LARGE,series=\bfseries}
+
+% ── Frame title template ──
+\setbeamertemplate{frametitle}{%
+  \nointerlineskip
+  \begin{beamercolorbox}[wd=\paperwidth,ht=2.5em,dp=0.8em,leftskip=0.8em]{frametitle}%
+    \usebeamerfont{frametitle}\insertframetitle
+  \end{beamercolorbox}%
+  \vskip-0.2em
+  {\color{thugold}\rule{\paperwidth}{2pt}}%
+}
+
+% ── Footline ──
+\setbeamertemplate{footline}{%
+  \hfill\usebeamercolor[fg]{footline}\scriptsize
+  \insertframenumber/\inserttotalframenumber\hspace{1em}\vspace{0.3em}%
+}
+\setbeamertemplate{navigation symbols}{}
+
+% ── Image helper ──
+\graphicspath{{sources/}}
+
+% ── Meta ──
+\title{SO-101 Training Framework\\{\normalsize \& Orchestrator Architecture}}
+\author{Phang Hong Hao (潘洪浩)}
+\institute{Tsinghua University}
+\date{\today}
+
+\begin{document}
+
+% ============================================================
+% SLIDE 1: Title
+% ============================================================
+\begin{frame}[plain]
+\vfill
+\begin{center}
+{\usebeamerfont{title}\usebeamercolor[fg]{title}\inserttitle}
+
+\vspace{0.8em}
+{\usebeamerfont{author}\usebeamercolor[fg]{author}\insertauthor}
+
+\vspace{0.3em}
+{\small\color{gray}\insertinstitute}
+
+\vspace{0.3em}
+{\small\color{gray!70}\insertdate}
+\end{center}
+\vfill
+\end{frame}
+
+% ============================================================
+% SLIDE 2: Training Framework + Speed
+% ============================================================
+\begin{frame}{Training Framework \& Speed Benchmark}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\textbf{Two Policies on RTX 6000D}
+
+\vspace{0.2em}
+\scriptsize
+\begin{tabular}{ll}
+\toprule
+ & \textbf{PushT Diffusion} \\
+\midrule
+Policy   & Diffusion (UNet) \\
+Params   & 263M \\
+Batch    & 64 \\
+Steps    & 100K \\
+\bottomrule
+\end{tabular}
+
+\vspace{0.4em}
+\begin{tabular}{ll}
+\toprule
+ & \textbf{SO-101 ACT} \\
+\midrule
+Policy   & ACT (Transformer) \\
+Params   & 84M \\
+Batch    & 128 (max) \\
+Steps    & 50K \\
+\bottomrule
+\end{tabular}
+\end{column}
+
+\begin{column}{0.50\textwidth}
+\textbf{torchcodec vs pyav}
+
+\vspace{0.2em}
+\scriptsize
+\begin{tabular}{lcc}
+\toprule
+\textbf{Config} & \textbf{Speed} & \textbf{Factor} \\
+\midrule
+PushT pyav        & 0.5--0.7 step/s & 1x \\
+\rowcolor{thupurple!10}
+PushT torchcodec  & 12--15 step/s & \textbf{20x} \\
+\midrule
+ACT pyav 8w       & 0.38 step/s & 1x \\
+ACT pyav 8w AMP   & 0.45 step/s & 1.2x \\
+\rowcolor{thupurple!10}
+ACT torchcodec 8w AMP & \textbf{1.9 step/s} & \textbf{8.6x} \\
+\bottomrule
+\end{tabular}
+
+\vspace{0.4em}
+\begin{exampleblock}{\scriptsize Key Finding}
+\scriptsize GPU 利用率始终 100\%，\textbf{视频解码是真正瓶颈}。torchcodec GPU 硬件加速 >> pyav CPU 逐帧解码。
+\end{exampleblock}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ============================================================
+% SLIDE 3: Optimal Config & Bugs
+% ============================================================
+\begin{frame}{Optimal Configuration \& Known Bugs}
+\begin{columns}[T]
+\begin{column}{0.50\textwidth}
+\textbf{Launch Command}
+
+\vspace{0.2em}
+\scriptsize
+\begin{adjustbox}{max width=\textwidth}
+\begin{tabular}{ll}
+\toprule
+\textbf{Parameter} & \textbf{Value} \\
+\midrule
+\texttt{video\_backend} & torchcodec \\
+\texttt{policy.type}    & act \\
+\texttt{policy.device}  & cuda (not cuda:N!) \\
+\texttt{chunk\_size}    & 100 \\
+\texttt{dim\_model}     & 512 \\
+\texttt{use\_amp}       & True \\
+\texttt{batch\_size}    & 128 (max) \\
+\texttt{num\_workers}   & 8 \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+
+\vspace{0.3em}
+\begin{alertblock}{\scriptsize Why batch\_size=128 Max?}
+\scriptsize ACT chunk\_size=100 $O(n^2)$，128 batch 时显存 ${\sim}$79GB（RTX 6000D 上限）。
+\end{alertblock}
+\end{column}
+
+\begin{column}{0.47\textwidth}
+\textbf{Known Bugs \& Workarounds}
+
+\vspace{0.2em}
+\scriptsize
+\begin{tabular}{p{2.8cm}p{3.5cm}}
+\toprule
+\textbf{Bug} & \textbf{Fix} \\
+\midrule
+\texttt{is\_amp\_available} ValueError & \texttt{CUDA\_VISIBLE\_DEVICES=6} \\
+\addlinespace
+torchcodec \texttt{DecodingError} & 同上 \\
+\addlinespace
+\texttt{CXXABI\_1.3.15} not found & \texttt{LD\_PRELOAD=.../libstdc++.so.6} \\
+\addlinespace
+\texttt{libavutil.so.X} not found & \texttt{conda install ffmpeg} \\
+\bottomrule
+\end{tabular}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ============================================================
+% SLIDE 4: Orchestrator Architecture
+% ============================================================
+\begin{frame}{Orchestrator Architecture}
+\centering
+\includegraphics[width=0.75\textwidth]{orchestrator_pipeline.png}
+
+\vspace{0.1em}
+\scriptsize
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\begin{block}{\scriptsize Core Modules}
+\tiny
+\begin{itemize}\setlength{\itemsep}{0pt}
+  \item \texttt{arm101\_orchestrator.py} — 主控 + CLI
+  \item \texttt{phase\_manager.py} — YAML 三层合并
+  \item \texttt{state\_store.py} — 崩溃恢复 (原子 JSON)
+  \item \texttt{data\_collector.py} — MuJoCo 采集
+\end{itemize}
+\end{block}
+\end{column}
+\begin{column}{0.48\textwidth}
+\begin{block}{\scriptsize Key Features}
+\tiny
+\begin{itemize}\setlength{\itemsep}{0pt}
+  \item \texttt{-{}-fresh} / \texttt{-{}-start-from <id>} / \texttt{-{}-dry-run}
+  \item 崩溃恢复: 重连训练 PID
+  \item Loss Monitor: CONVERGED / OVERFITTING
+\end{itemize}
+\end{block}
+\end{column}
+\end{columns}
+\end{frame}
+
+% ============================================================
+% SLIDE 5: Reference Models & Key Takeaways
+% ============================================================
+\begin{frame}{Reference Models \& Key Takeaways}
+\begin{columns}[T]
+\begin{column}{0.48\textwidth}
+\textbf{HuggingFace Models (Survey 100+)}
+
+\vspace{0.2em}
+\scriptsize
+\begin{tabular}{cl}
+\toprule
+\textbf{\#} & \textbf{Model / Key Info} \\
+\midrule
+1 & \texttt{Sa74ll/smolvla\_so101} \\
+  & SmolVLA, 87.66\% 成功率 \\
+2 & \texttt{TakuyaHiraoka/act\_so101} \\
+  & ACT, 真实机械臂 \\
+3 & \texttt{davidlinjiahao/lerobot\_so101} \\
+  & ACT, MuJoCo, 最相似 \\
+\bottomrule
+\end{tabular}
+
+\vspace{0.3em}
+\begin{exampleblock}{\scriptsize Pipeline}
+\scriptsize
+\texttt{scene.xml} $\to$ \texttt{MjModel} $\to$ trajectory $\to$ render $\to$ \texttt{LeRobotDataset} $\to$ HF Hub
+\end{exampleblock}
+\end{column}
+
+\begin{column}{0.48\textwidth}
+\textbf{Key Takeaways}
+
+\vspace{0.2em}
+\begin{enumerate}\setlength{\itemsep}{2pt}\scriptsize
+  \item \textbf{ACT 是 SO-101 主流策略}
+    \begin{itemize}\scriptsize
+      \item HF 上 30+ ACT 模型
+    \end{itemize}
+  \item \textbf{SmolVLA 成功率更高}
+    \begin{itemize}\scriptsize
+      \item Sa74ll 达 87.66\%，靠数据分割
+    \end{itemize}
+  \item \textbf{本项目与 davidlinjiahao 最相似}
+    \begin{itemize}\scriptsize
+      \item 都是 MuJoCo + ACT + SO-101
+    \end{itemize}
+  \item \textbf{视频解码是训练瓶颈}
+    \begin{itemize}\scriptsize
+      \item torchcodec 比 pyav 快 8--20x
+    \end{itemize}
+\end{enumerate}
+\end{column}
+\end{columns}
+\end{frame}
+
+\end{document}
